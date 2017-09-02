@@ -20,3 +20,8 @@ octave-workspace
 
 # Simulink autosave extension
 .autosave
+
+# Videos
+.mp4
+.mpg
+.avi
