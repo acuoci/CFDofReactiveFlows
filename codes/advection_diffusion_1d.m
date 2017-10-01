@@ -41,6 +41,8 @@
 close all;
 clear variables;
 
+% Data
+%-------------------------------------------------------------------------%
 np=21;              % number of grid points                
 nstep=100;          % number of time steps
 length=2.0;         % domain length [m]
@@ -48,30 +50,37 @@ h=length/(np-1);    % grid step [m]
 dt=0.05;            % time step [s]
 u=1;                % velocity [m/s]
 D=0.05;             % diffusion coefficient [m2/s]
+A=0.5;              % amplitude of initial solution
+k=pi;               % wave number [1/m]
 
+% Memory allocation
+%-------------------------------------------------------------------------%
 f=zeros(np,1);      % temporary numerical solution
 y=zeros(np,1);      % current numerical solution
 a=zeros(np,1);      % exact solution
 
-% prepare video
+% Video setup
+%-------------------------------------------------------------------------%
 v = VideoWriter('advection_diffusion_1d.mp4', 'MPEG-4');
 open(v);
 
-% initial solution
+% Initial solution
+%-------------------------------------------------------------------------%
 for i=1:np
-	y(i)=0.5*sin(2*pi*h*(i-1)); 
+	y(i)=A*sin(2*k*h*(i-1)); 
 end
 
 % Loop over time
+%-------------------------------------------------------------------------%
 t=0.; 
 for m=1:nstep 
 	
-    % exact solution
+    % Exact solution
     for i=1:np 
-		a(i) = exp(-4*pi*pi*D*t)*0.5*sin(2*pi*(h*(i-1)-u*t)); 
+		a(i) = A*exp(-4*k*k*D*t)*sin(2*k*(h*(i-1)-u*t)); 
     end
     
-    % integrals (post processing only)
+    % Integrals (post processing only)
     a2_int = 0.;
     y2_int = 0.;
     for i=1:np-1
@@ -79,10 +88,10 @@ for m=1:nstep
          y2_int = y2_int + h/2*(y(i)^2+y(i+1)^2);
     end
          
-    % graphics only
+    % Plots
     message = sprintf('time=%d\na^2(int)=%d\ny^2(int)=%d', t, a2_int, y2_int);
-	hold off; plot([0:h:length],y,'linewidt',2); axis([0 length -1, 1]); % plot num. 
-	hold on; plot([0:h:length],a,'r','linewidt',2);                      % plot exact
+	hold off; plot([0:h:length],y,'linewidth',2); axis([0 length -1, 1]); % plot num. 
+	hold on; plot([0:h:length],a,'r','linewidth',2);                      % plot exact
     hold on; legend('numerical', 'exact');                  % legend
     xlabel('spatial coordinate [m]');
     ylabel('solution');    
@@ -91,22 +100,31 @@ for m=1:nstep
     writeVideo(v,frame);
     delete(time);
     
-    % temporary solution 
+    % Temporary solution 
 	f=y; 
     
-    % numerical solution (internal points)
+    % Numerical solution (internal points)
     for i=2:np-1 
-		y(i) = f(i)-0.5*(u*dt/h)*(f(i+1)-f(i-1))+...  % advection
+		y(i) = f(i)-A*(u*dt/h)*(f(i+1)-f(i-1))+...    % advection
 			   D*(dt/h^2)*(f(i+1)-2*f(i)+f(i-1));     % diffusion
     end 
     
-    % numerical solution (periodic boundary conditions)
-	y(np) = f(np)-0.5*(u*dt/h)*(f(2)-f(np-1))+...
+    % Numerical solution (periodic boundary conditions)
+	y(np) = f(np)-A*(u*dt/h)*(f(2)-f(np-1))+...
             D*(dt/h^2)*(f(2)-2*f(np)+f(np-1)); 
 	y(1)  = y(np);
     
-    % advance time
+    % Calculate error
+    E = 0;
+    for i=1:np 
+        E = E + (y(i)-a(i))^2;
+    end
+    E = h*sqrt(E);
+    
+    % Advance time
 	t=t+dt; 
+    fprintf('time=%d E=%e\n', t, E);
+    
 end
 
 close(v);
