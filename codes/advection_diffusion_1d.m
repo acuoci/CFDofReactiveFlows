@@ -51,7 +51,7 @@ dt=0.05;            % time step [s]
 u=1;                % velocity [m/s]
 D=0.05;             % diffusion coefficient [m2/s]
 A=0.5;              % amplitude of initial solution
-k=pi;               % wave number [1/m]
+k=1;                % wave number [1/m]
 
 % Memory allocation
 %-------------------------------------------------------------------------%
@@ -67,7 +67,7 @@ open(v);
 % Initial solution
 %-------------------------------------------------------------------------%
 for i=1:np
-	y(i)=A*sin(2*k*h*(i-1)); 
+	y(i)=A*sin(2*pi*k*h*(i-1)); 
 end
 
 % Loop over time
@@ -77,7 +77,7 @@ for m=1:nstep
 	
     % Exact solution
     for i=1:np 
-		a(i) = A*exp(-4*k*k*D*t)*sin(2*k*(h*(i-1)-u*t)); 
+		a(i) = A*exp(-4*pi*pi*k*k*D*t)*sin(2*pi*k*(h*(i-1)-u*t)); 
     end
     
     % Integrals (post processing only)
@@ -105,12 +105,12 @@ for m=1:nstep
     
     % Numerical solution (internal points)
     for i=2:np-1 
-		y(i) = f(i)-A*(u*dt/h)*(f(i+1)-f(i-1))+...    % advection
+		y(i) = f(i)-(u*dt/2/h)*(f(i+1)-f(i-1))+...    % advection
 			   D*(dt/h^2)*(f(i+1)-2*f(i)+f(i-1));     % diffusion
     end 
     
     % Numerical solution (periodic boundary conditions)
-	y(np) = f(np)-A*(u*dt/h)*(f(2)-f(np-1))+...
+	y(np) = f(np)-(u*dt/2/h)*(f(2)-f(np-1))+...
             D*(dt/h^2)*(f(2)-2*f(np)+f(np-1)); 
 	y(1)  = y(np);
     
