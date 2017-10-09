@@ -51,26 +51,31 @@ lengthy=2.0;            % domain length along y [m]
 hx=lengthx/(nx-1);      % grid step along x [m]
 hy=lengthy/(ny-1);      % grid step along y [m] 
 D=0.025;                % diffusion coefficient [m2/s]
-
-dt=1.0*0.125*hx*hy/D;   % time step [s]
-
 u=-1;                   % velocity along x [m/s]
 v= 0;                   % velocity along y [m/s]
 
+% Time step limits
+sigma = 0.75;                     % safety coefficient
+dt_diff  = 1/4*hx*hy/D;           % diffusion [s]
+dt_conv = 4*D/(u^2+v^2);          % convection [s]
+dt = sigma*min(dt_diff, dt_conv); % time step [s]
+
+% Memory allocation
 f=zeros(nx,ny);     % current numerical solution
 fo=zeros(nx,ny);    % previous numerical solution
 
-% grid axes
+% Grid axes
 xaxis = 0:hx:lengthx;
 yaxis = 0:hy:lengthy;
 
 % Boundary conditions
 f(nx, ny*1/3:ny*2/3) = 1;
 
-% prepare video
+% Prepare video
 videompg4 = VideoWriter('advection_diffusion_2d.mp4', 'MPEG-4');
 open(videompg4);
 
+% Time loop
 t = 0;
 for l=1:nstep
     
@@ -97,9 +102,13 @@ for l=1:nstep
         end
     end
     
-    % Boundary conditions: south and north sides (Neumann)
+    % Boundary conditions: south side (Neumann)
     for i=1:nx
         f(i,1)=f(i,2);
+    end
+    
+    % Boundary conditions: north side (Neumann)
+    for i=1:nx
         f(i,ny)=f(i,ny-1);
     end
     
