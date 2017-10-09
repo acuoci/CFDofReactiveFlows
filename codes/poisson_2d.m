@@ -48,10 +48,11 @@ lengthx=2.0;            % domain length along x [m]
 lengthy=2.0;            % domain length along y [m]
 hx=lengthx/(nx-1);      % grid step along x [m]
 hy=lengthy/(ny-1);      % grid step along y [m] 
-beta=1;                 % SOR coefficient
+beta=1.;                % SOR coefficient
 
 % Memory allocation
 T=zeros(nx,ny);
+S=zeros(nx,ny);
 
 % Grid axes
 xaxis = 0:hx:lengthx;
@@ -66,7 +67,8 @@ for l=1:max_iterations
     for i=2:nx-1
         for j=2:ny-1
             T(i,j)= beta*(hx^2*hy^2/2/(hx^2+hy^2))*...
-                    ((T(i+1,j)+T(i-1,j))/hx^2+(T(i,j+1)+T(i,j-1))/hy^2)+...
+                    ( (T(i+1,j)+T(i-1,j))/hx^2+(T(i,j+1)+T(i,j-1))/hy^2 ...
+                      -S(i,j) )+ ...
                     (1.0-beta)*T(i,j);
         end
     end
@@ -76,7 +78,7 @@ for l=1:max_iterations
     for i=2:nx-1
         for j=2:ny-1
             res=res+abs( (T(i+1,j)-2*T(i,j)+T(i-1,j))/hx^2 + ...
-                         (T(i,j+1)-2*T(i,j)+T(i,j-1))/hy^2 );
+                         (T(i,j+1)-2*T(i,j)+T(i,j-1))/hy^2 - S(i,j) );
         end
     end
     
