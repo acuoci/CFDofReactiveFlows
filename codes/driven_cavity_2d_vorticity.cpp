@@ -40,20 +40,26 @@
 // ----------------------------------------------------------------------- //
 
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
+#include<Eigen/SparseLU>
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
 
 // Function to write output files in Tecplot format
 void WriteTecplotFile(	const std::string filename,
-						const Eigen::MatrixXd& x, const Eigen::MatrixXd& y,
+						const Eigen::VectorXd& x, const Eigen::VectorXd& y,
 						const Eigen::MatrixXd& u, const Eigen::MatrixXd& v,
 						const Eigen::MatrixXd& omega, const Eigen::MatrixXd& psi);
+
+// Function to set the sparse matrix solver as alternative to the SOR method
+void SetSparseMatrixSolver(	const int nx, const int ny,
+							Eigen::SparseLU< Eigen::SparseMatrix<double> >& solver);
 
 int main()
 {
 	// Basic setup
-	const unsigned int nx = 25;					     	// number of grid points along x
+	const unsigned int nx = 25;						    // number of grid points along x
 	const unsigned int ny = nx;							// number of grid points along y
 	const double h = 1. / static_cast<double>(nx - 1);	// grid step along[-]
 	const double Re = 100;								// Reynolds number[-]
@@ -75,6 +81,9 @@ int main()
 	const double dt_conv = 4 / Re;									// time step(convection stability)
 	const double dt = sigma*std::min(dt_diff, dt_conv);				// time step(stability)
 	const unsigned int nsteps = static_cast<unsigned int>(tau/dt);  // number of steps
+
+	// Choosing the Poisson solver
+	bool poisson_sor_solver = true;
 
 	// Output options
 	const bool write_tecplot = false;
@@ -100,38 +109,75 @@ int main()
 	for (unsigned int i = 0; i < nx; i++)
 		x(i) = h*i;
 	for (unsigned int j = 0; j < ny; j++)
-		y(j) = h*j;
+			y(j) = h*j;
+
+	// Sparse solver for Poisson equation
+	Eigen::SparseLU< Eigen::SparseMatrix<double> > solver;
+	Eigen::VectorXd b;
+	Eigen::VectorXd solution;
+	if (poisson_sor_solver == false)
+	{
+		b.resize(nx*ny);
+		solution.resize(nx*ny);
+		SetSparseMatrixSolver(nx, ny, solver);
+	}
 
 	// Time loop
 	double t = 0;
 	for (unsigned int istep = 1; istep <= nsteps; istep++)
 	{
 		// ------------------------------------------------------------------ //
-		// Poisson equation(SOR)
+		// Sparse LU factorization
 		// ------------------------------------------------------------------ //
-		unsigned int iter;
-		for (iter = 1; iter <= max_iterations; iter++)
+		if (poisson_sor_solver == false)
 		{
-			psio = psi;
+			b.setZero();
 			for (unsigned int i = 1; i < nx - 1; i++)
 				for (unsigned int j = 1; j < ny - 1; j++)
 				{
-					// solve for the stream function by SOR iteration
-					psi(i, j) = 0.25*beta*(psi(i + 1, j) + psi(i - 1, j) + psi(i, j + 1) +
-								psi(i, j - 1) + h*h*omega(i, j)) + (1.0 - beta)*psi(i, j);
+					const int index = j*nx + i;
+					b(index) = h*h*omega(i, j);
 				}
 
-			// Estimate the error
-			double epsilon = 0.0;
+			//std::cout << b << std::endl;
+			solution = solver.solve(b);
 			for (unsigned int i = 0; i < nx; i++)
 				for (unsigned int j = 0; j < ny; j++)
-					epsilon += std::abs(psio(i, j) - psi(i, j));
-
-			// Check the error
-			if (epsilon <= max_error) // stop if converged
-				break;
+				{
+					const int index = j*nx + i;
+					psi(i, j) = solution(index);
+				}
 		}
 
+		// ------------------------------------------------------------------ //
+		// Poisson equation(SOR)
+		// ------------------------------------------------------------------ //
+		unsigned int iter = 0;
+		if (poisson_sor_solver == true)
+		{
+			for (iter = 1; iter <= max_iterations; iter++)
+			{
+				psio = psi;
+				for (unsigned int i = 1; i < nx - 1; i++)
+					for (unsigned int j = 1; j < ny - 1; j++)
+					{
+						// solve for the stream function by SOR iteration
+						psi(i, j) = 0.25*beta*(psi(i + 1, j) + psi(i - 1, j) + psi(i, j + 1) +
+							psi(i, j - 1) + h*h*omega(i, j)) + (1.0 - beta)*psi(i, j);
+					}
+
+				// Estimate the error
+				double epsilon = 0.0;
+				for (unsigned int i = 0; i < nx; i++)
+					for (unsigned int j = 0; j < ny; j++)
+						epsilon += std::abs(psio(i, j) - psi(i, j));
+
+				// Check the error
+				if (epsilon <= max_error) // stop if converged
+					break;
+			}
+		}
+		
 		// ------------------------------------------------------------------ //
 		// Find vorticity on boundaries
 		// ------------------------------------------------------------------ //
@@ -230,7 +276,7 @@ int main()
 }
 
 void WriteTecplotFile(	const std::string filename, 
-						const Eigen::MatrixXd& x, const Eigen::MatrixXd& y,
+						const Eigen::VectorXd& x, const Eigen::VectorXd& y,
 						const Eigen::MatrixXd& u, const Eigen::MatrixXd& v,
 						const Eigen::MatrixXd& omega, const Eigen::MatrixXd& psi)
 {
@@ -238,12 +284,52 @@ void WriteTecplotFile(	const std::string filename,
 	fTecplot.setf(std::ios::scientific);
 	fTecplot << "Title = Solution" << std::endl;
 	fTecplot << "Variables = \"x\", \"y\", \"u\", \"v\", \"omega\", \"psi\" " << std::endl;
-	fTecplot << "Zone I = " << x.rows() << ", J = " << x.cols() << ", F = POINT" << std::endl;
+	fTecplot << "Zone I = " << x.size() << ", J = " << y.size() << ", F = POINT" << std::endl;
 
-	for (unsigned int i = 0; i < x.rows(); i++)
-		for (unsigned int j = 0; j < x.cols(); j++)
-			fTecplot << x(i, j) << " " << y(i, j) << " " << u(i, j) << " " << v(i, j) << " " << omega(i, j) << " " << psi(i, j) << std::endl;
+	for (unsigned int i = 0; i < x.size(); i++)
+		for (unsigned int j = 0; j < y.size(); j++)
+			fTecplot << x(i) << " " << y(j) << " " << u(i, j) << " " << v(i, j) << " " << omega(i, j) << " " << psi(i, j) << std::endl;
 	fTecplot.close();
+}
+
+void SetSparseMatrixSolver(const int nx, const int ny, Eigen::SparseLU< Eigen::SparseMatrix<double> >& solver)
+{
+	typedef Eigen::Triplet<double> T;
+
+	Eigen::SparseMatrix<double> A(nx*ny, nx*ny);
+	std::vector<T> tripletList;
+	tripletList.reserve(5 * nx*ny);
+
+	// Internal points
+	for (int i = 1; i < nx - 1; i++)
+		for (int j = 1; j < ny - 1; j++)
+		{
+			const int index = j*nx + i;
+			tripletList.push_back(T(index, index, 4.));
+			tripletList.push_back(T(index, index + 1, -1.));
+			tripletList.push_back(T(index, index - 1, -1.));
+			tripletList.push_back(T(index, index + nx, -1.));
+			tripletList.push_back(T(index, index - nx, -1.));
+		}
+
+	// South/North points
+	for (int i = 0; i < nx; i++)
+	{
+		tripletList.push_back(T(i, i, 1.));
+		tripletList.push_back(T((ny - 1)*nx + i, (ny - 1)*nx + i, 1.));
+	}
+
+	// East/West points
+	for (int j = 1; j < ny - 1; j++)
+	{
+		tripletList.push_back(T(j*nx, j*nx, 1.));
+		tripletList.push_back(T(j*nx + (nx - 1), j*nx + (nx - 1), 1.));
+	}
+
+	A.setFromTriplets(tripletList.begin(), tripletList.end());
+
+	solver.analyzePattern(A);
+	solver.factorize(A);
 }
 
 
