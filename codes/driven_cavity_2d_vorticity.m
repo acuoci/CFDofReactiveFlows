@@ -33,7 +33,7 @@
 %                                                                         %
 %-------------------------------------------------------------------------%
 %                                                                         %
-%  Code: 2D driven-cavity problem in vorticity formulation                %
+%  Code: 2D driven-cavity problem in vorticity/streamline formulation     %
 %        The code is adapted and extended from Tryggvason, Computational  %
 %        Fluid Dynamics http://www.nd.edu/~gtryggva/CFD-Course/           %
 %                                                                         %
@@ -42,21 +42,21 @@ close all;
 clear variables;
 
 % Basic setup
-nx=50;                  % number of grid points along x
+nx=25;                  % number of grid points along x
 ny=nx;                  % number of grid points along y
 h=1/(nx-1);             % grid step along [-]
-Re=100;                  % Reynolds number [-]
-tau=1;                  % total time of simulation [-]
+Re=100;                 % Reynolds number [-]
+tau=10;                 % total time of simulation [-]
 
 % Parameters for SOR
-max_iterations=1000;    % maximum number of iterations
-beta=1.5;               % SOR coefficient
-max_error=0.001;        % error for convergence
+max_iterations=10000;   % maximum number of iterations
+beta=1.9;               % SOR coefficient
+max_error=0.0001;       % error for convergence
 
-% Data for recunstructing the velocity field
+% Data for reconstructing the velocity field
 L=1;                    % length [m]
 nu=1e-6;                % kinematic viscosity [m2/s] 
-u_wall=nu*Re/L;         % wall velocity [m/s]
+Uwall=nu*Re/L;          % wall velocity [m/s]
 
 % Time step
 sigma = 0.5;                        % safety factor for time step (stability)
@@ -70,22 +70,19 @@ fprintf(' - Diffusion:  %f\n', dt_diff);
 fprintf(' - Convection: %f\n', dt_conv);
 
 % Memory allocation
-psi=zeros(nx,ny);       % streamfunction
+psi=zeros(nx,ny);       % streamline function
 omega=zeros(nx,ny);     % vorticity
-psio=zeros(nx,ny);      % streamfunction at previous time
+psio=zeros(nx,ny);      % streamline function at previous time
 omegao=zeros(nx,ny);    % vorticity at previous time
-u=zeros(nx,ny);         % reconstructed x-velocity
-v=zeros(nx,ny);         % reconstructed y-velocity
+u=zeros(nx,ny);         % reconstructed dimensionless x-velocity
+v=zeros(nx,ny);         % reconstructed dimensionless y-velocity
+U=zeros(nx,ny);         % reconstructed x-velocity
+V=zeros(nx,ny);         % reconstructed y-velocity
 
-% Grid construction
-x=zeros(nx,ny);         % grid coordinates (x axis)
-y=zeros(nx,ny);         % grid coordinates (y axis)
-for i=1:nx
-    for j=1:ny
-        x(i,j)=h*(i-1);
-        y(i,j)=h*(j-1);
-    end
-end;
+% Mesh construction (only needed in graphical post-processing)
+x=0:h:1;                % grid coordinates (x axis)
+y=0:h:1;                % grid coordinates (y axis)
+[X,Y] = meshgrid(x,y);  % mesh
 
 % Time loop
 t = 0;
@@ -123,7 +120,7 @@ for istep=1:nsteps
     % ------------------------------------------------------------------- %
     
     omega(2:nx-1,1)=-2.0*psi(2:nx-1,2)/(h*h);               % south
-    omega(2:nx-1,ny)=-2.0*psi(2:nx-1,ny-1)/(h*h)-2.0/h;     % north
+    omega(2:nx-1,ny)=-2.0*psi(2:nx-1,ny-1)/(h*h)-2.0/h*1;   % north
     omega(1,2:ny-1)=-2.0*psi(2,2:ny-1)/(h*h);               % east
     omega(nx,2:ny-1)=-2.0*psi(nx-1,2:ny-1)/(h*h);           % west
   
@@ -141,12 +138,14 @@ for istep=1:nsteps
          end
      end
    
-    fprintf('Step: %d - Time: %f - Poisson iterations: %d\n', istep, t, iter);
-
+    if (mod(istep,10)==1)
+        fprintf('Step: %d - Time: %f - Poisson iterations: %d\n', istep, t, iter);
+    end
+    
     t=t+dt;
     
     % ------------------------------------------------------------------- %
-    % Reconstruction of velocity field
+    % Reconstruction of dimensionless velocity field
     % ------------------------------------------------------------------- %
     
     u(:,ny)=1;
@@ -157,47 +156,105 @@ for istep=1:nsteps
          end
     end
     
-
+    % ------------------------------------------------------------------- %
+    % Reconstruction of velocity field
+    % ------------------------------------------------------------------- %
+    U = u*Uwall;
+    V = v*Uwall;
+    
     % ------------------------------------------------------------------- %
     % Graphics only
     % ------------------------------------------------------------------- %
-    subplot(241);
-    contour(x,y,omega,40);
-    axis('square');
+    plot_2x4 = false;   % plotting the 2x4 plot
     
-    subplot(245);
-    contour(x,y,psi);
-    axis('square');
-    
-    subplot(242);
-    contour(x,y,u);
-    axis('square');
-    
-    subplot(246);
-    contour(x,y,v);
-    axis('square');
-    
-    subplot(243);
-    plot(x(:,round(ny/2)),u(:, round(ny/2)));
-    hold on;
-    plot(x(:,round(ny/2)),v(:, round(ny/2)));
-    axis('square');
-    hold off;
-    
-    subplot(247);
-    plot(y(round(nx/2),:),u(round(nx/2),:));
-    hold on;
-    plot(y(round(nx/2),:),v(round(nx/2),:));
-    axis('square');
-    hold off;
-    
-    subplot(244);
-    quiver(x,y,u,v);
-    axis('square', [0 1 0 1]);
+    if (plot_2x4 == true)
+        
+        subplot(241);
+        contour(x,y,omega');
+        axis('square'); title('omega'); xlabel('x'); ylabel('y');
 
-    pause(0.01)
+        subplot(245);
+        contour(x,y,psi');
+        axis('square'); title('psi'); xlabel('x'); ylabel('y');
+
+        subplot(242);
+        contour(x,y,u');
+        axis('square'); title('u'); xlabel('x'); ylabel('y');
+
+        subplot(246);
+        contour(x,y,v');
+        axis('square'); title('v'); xlabel('x'); ylabel('y');
+
+        subplot(243);
+        plot(x,u(:, round(ny/2)));
+        hold on;
+        plot(x,v(:, round(ny/2)));
+        axis('square'); legend('u', 'v');
+        title('velocities along HA'); xlabel('x'); ylabel('velocities');
+        hold off;
+        
+        subplot(247);
+        plot(y,u(round(nx/2),:));
+        hold on;
+        plot(y,v(round(nx/2),:));
+        axis('square'); legend('u', 'v');
+        title('velocities along VA'); xlabel('y'); ylabel('velocities');
+        hold off;
+
+        subplot(244);
+        quiver(x,y,u',v');
+        axis('square', [0 1 0 1]);
+        title('velocity vectors'); xlabel('x'); ylabel('y');
+    
+        pause(0.001);
+        
+    end
     
 end
 
+% ------------------------------------------------------------------- %
+% Write final maps
+% ------------------------------------------------------------------- %
 
+subplot(231);
+surface(x,y,u');
+axis('square'); title('u'); xlabel('x'); ylabel('y');
 
+subplot(234);
+surface(x,y,v');
+axis('square'); title('v'); xlabel('x'); ylabel('y');
+
+subplot(232);
+surface(x,y,omega');
+axis('square'); title('omega'); xlabel('x'); ylabel('y');
+
+subplot(235);
+surface(x,y,psi');
+axis('square'); title('psi'); xlabel('x'); ylabel('y');
+
+subplot(233);
+contour(x,y,psi', 30, 'b');
+axis('square');
+title('stream lines'); xlabel('x'); ylabel('y');
+
+subplot(236);
+quiver(x,y,u',v');
+axis([0 1 0 1], 'square');
+title('stream lines'); xlabel('x'); ylabel('y');
+
+% ------------------------------------------------------------------- %
+% Write velocity profiles along the centerlines for exp comparison
+% ------------------------------------------------------------------- %
+u_profile = u(round(nx/2),:);
+fileVertical = fopen('vertical.txt','w');
+for i=1:ny 
+    fprintf(fileVertical,'%f %f\n',y(i), u_profile(i));
+end
+fclose(fileVertical);
+
+v_profile = v(:,round(ny/2));
+fileHorizontal = fopen('horizontal.txt','w');
+for i=1:nx
+    fprintf(fileHorizontal,'%f %f\n',x(i), v_profile(i));
+end
+fclose(fileHorizontal);
