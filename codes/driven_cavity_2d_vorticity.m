@@ -42,7 +42,7 @@ close all;
 clear variables;
 
 % Basic setup
-nx=25;                  % number of grid points along x
+nx=100;                 % number of grid points along x
 ny=nx;                  % number of grid points along y
 h=1/(nx-1);             % grid step along [-]
 Re=100;                 % Reynolds number [-]
@@ -51,7 +51,7 @@ tau=10;                 % total time of simulation [-]
 % Parameters for SOR
 max_iterations=10000;   % maximum number of iterations
 beta=1.9;               % SOR coefficient
-max_error=0.0001;       % error for convergence
+max_error=0.00001;      % error for convergence
 
 % Data for reconstructing the velocity field
 L=1;                    % length [m]
@@ -108,6 +108,7 @@ for istep=1:nsteps
                 epsilon=epsilon+abs(psio(i,j)-psi(i,j)); 
             end
         end
+        epsilon = epsilon/nx/ny;
         
         % Check the error
         if (epsilon <= max_error) % stop if converged

@@ -22,6 +22,6 @@ octave-workspace
 .autosave
 
 # Videos
-.mp4
-.mpg
-.avi
+*.mp4
+*.mpg
+*.avi
