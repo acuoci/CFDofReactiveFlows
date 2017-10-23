@@ -201,7 +201,7 @@ int main()
 		for (unsigned int i = 1; i < nx - 1; i++)
 			for (unsigned int j = 1; j < ny - 1; j++)
 			{
-				omega(i, j) = omega(i, j) + dt*(-0.25*((psi(i, j + 1) - psi(i, j - 1))*
+				omega(i, j) = omegao(i, j) + dt*(-0.25*((psi(i, j + 1) - psi(i, j - 1))*
 							(omegao(i + 1, j) - omegao(i - 1, j)) - (psi(i + 1, j) - psi(i - 1, j))*
 							(omegao(i, j + 1) - omegao(i, j - 1))) / (h*h) +
 							1. / Re*(omegao(i + 1, j) + omegao(i - 1, j) + omegao(i, j + 1) +
