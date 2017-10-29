@@ -42,7 +42,7 @@ close all;
 clear variables;
 
 % Basic setup
-nx=100;                 % number of grid points along x
+nx=25;                  % number of grid points along x
 ny=nx;                  % number of grid points along y
 h=1/(nx-1);             % grid step along [-]
 Re=100;                 % Reynolds number [-]
@@ -55,7 +55,7 @@ max_error=0.00001;      % error for convergence
 
 % Data for reconstructing the velocity field
 L=1;                    % length [m]
-nu=1e-6;                % kinematic viscosity [m2/s] 
+nu=1e-3;                % kinematic viscosity [m2/s] 
 Uwall=nu*Re/L;          % wall velocity [m/s]
 
 % Time step
@@ -94,12 +94,12 @@ for istep=1:nsteps
     for iter=1:max_iterations
         
         psio=psi;
-        for i=2:nx-1; 
+        for i=2:nx-1
             for j=2:ny-1 % solve for the stream function by SOR iteration
                 psi(i,j)=0.25*beta*(psi(i+1,j)+psi(i-1,j)+psi(i,j+1)+...
                             psi(i,j-1)+h*h*omega(i,j))+(1.0-beta)*psi(i,j);
             end
-        end;
+        end
         
         % Estimate the error
         epsilon=0.0; 
@@ -129,7 +129,7 @@ for istep=1:nsteps
     % Find new vorticity in interior points
     % ------------------------------------------------------------------- %
      omegao=omega;
-     for i=2:nx-1; 
+     for i=2:nx-1 
          for j=2:ny-1
             omega(i,j)=omegao(i,j)+dt*(-0.25*((psi(i,j+1)-psi(i,j-1))*...
                     (omegao(i+1,j)-omegao(i-1,j))-(psi(i+1,j)-psi(i-1,j))*...
@@ -139,7 +139,7 @@ for istep=1:nsteps
          end
      end
    
-    if (mod(istep,10)==1)
+    if (mod(istep,25)==1)
         fprintf('Step: %d - Time: %f - Poisson iterations: %d\n', istep, t, iter);
     end
     
@@ -150,9 +150,9 @@ for istep=1:nsteps
     % ------------------------------------------------------------------- %
     
     u(:,ny)=1;
-    for i=2:nx-1; 
+    for i=2:nx-1 
          for j=2:ny-1
-             u(i,j) = (psi(i,j+1)-psi(i,j-1))/2/h;
+             u(i,j) =  (psi(i,j+1)-psi(i,j-1))/2/h;
              v(i,j) = -(psi(i+1,j)-psi(i-1,j))/2/h;
          end
     end
