@@ -45,11 +45,12 @@ clear variables;
 % User data
 % ----------------------------------------------------------------------- %
 
-nx=48;              % number of (physical) cells along x
-ny=nx;              % number of (physical) cells along y
-L=1;                % length [m]
-nu=0.1;             % kinematic viscosity [m2/s] 
-tau=1;              % total time of simulation [-]
+% Only even numbers of cells are acceptable
+nx=24;      % number of (physical) cells along x
+ny=nx;      % number of (physical) cells along y
+L=1;        % length [m]
+nu=0.01;    % kinematic viscosity [m2/s] (if L=1 and un=1, then Re=1/nu)
+tau=10;     % total time of simulation [s]
 
 % Boundary conditions
 un=1;       % north wall velocity [m/s]
@@ -58,38 +59,34 @@ ve=0;       % east wall velocity [m/s]
 vw=0;       % west wall velocity [m/s]
 
 % Parameters for SOR
-max_iterations=1000;    % maximum number of iterations
-beta=1.2;               % SOR coefficient
-max_error=1e-4;         % error for convergence
+max_iterations=10000;   % maximum number of iterations
+beta=1.3;               % SOR coefficient
+max_error=1e-5;         % error for convergence
 
 % ----------------------------------------------------------------------- %
 % Data processing
 % ----------------------------------------------------------------------- %
 
 % Grid step
-h=L/nx;             % grid step [m]
+h=L/nx;                             % grid step (uniform grid) [m]
 
 % Time step
 sigma = 0.5;                        % safety factor for time step (stability)
-u2=(un^2+us^2+ve^2+vw^2);           % velocity measure [m2/s2]
-dt_diff=h^2/4/nu;                   % time step (diffusion stability)
-dt_conv=4*nu/u2;                    % time step (convection stability)
-dt=sigma*min(dt_diff, dt_conv);     % time step (stability)
+dt_diff=h^2/4/nu;                   % time step (diffusion stability) [s]
+dt_conv=4*nu/un^2;                  % time step (convection stability) [s]
+dt=sigma*min(dt_diff, dt_conv);     % time step (stability) [s]
 nsteps=tau/dt;                      % number of steps
+Re = un*L/nu;                       % Reynolds' number
 
 fprintf('Time step: %f\n', dt);
 fprintf(' - Diffusion:  %f\n', dt_diff);
 fprintf(' - Convection: %f\n', dt_conv);
+fprintf('Reynolds number: %f\n', Re);
 
 % Grid construction
-x=zeros(nx+1,ny+1);         % grid coordinates (x axis)
-y=zeros(nx+1,ny+1);         % grid coordinates (y axis)
-for i=1:nx+1
-    for j=1:ny+1
-        x(i,j)=h*(i-1);
-        y(i,j)=h*(j-1);
-    end
-end;
+x=0:h:1;                % grid coordinates (x axis)
+y=0:h:1;                % grid coordinates (y axis)
+[X,Y] = meshgrid(x,y);  % MATLAB grid
 
 % ----------------------------------------------------------------------- %
 % Memory allocation
@@ -110,12 +107,12 @@ po=zeros(nx+2,ny+2);
 % Fields used only for graphical post-processing purposes
 uu=zeros(nx+1,ny+1);
 vv=zeros(nx+1,ny+1);
-omega=zeros(nx+1,ny+1);
+pp=zeros(nx+1,ny+1);
 
 % Coefficient for pressure equation
-c=zeros(nx+2,ny+2)+1/4;
-c(2,3:ny)=1/3;c(nx+1,3:ny)=1/3;c(3:nx,2)=1/3;c(3:nx,ny+1)=1/3;
-c(2,2)=1/2;c(2,ny+1)=1/2;c(nx+1,2)=1/2;c(nx+1,ny+1)=1/2;
+gamma=zeros(nx+2,ny+2)+1/4;
+gamma(2,3:ny)=1/3;gamma(nx+1,3:ny)=1/3;gamma(3:nx,2)=1/3;gamma(3:nx,ny+1)=1/3;
+gamma(2,2)=1/2;gamma(2,ny+1)=1/2;gamma(nx+1,2)=1/2;gamma(nx+1,ny+1)=1/2;
 
 % ----------------------------------------------------------------------- %
 % Solution over time
@@ -124,28 +121,41 @@ t=0.0;
 for is=1:nsteps
     
     % Boundary conditions
-    u(1:nx+1,1)=2*us-u(1:nx+1,2);
-    u(1:nx+1,ny+2)=2*un-u(1:nx+1,ny+1);
-    v(1,1:ny+1)=2*vw-v(2,1:ny+1);
-    v(nx+2,1:ny+1)=2*ve-v(nx+1,1:ny+1);
+    u(1:nx+1,1)=2*us-u(1:nx+1,2);               % south wall
+    u(1:nx+1,ny+2)=2*un-u(1:nx+1,ny+1);         % north wall
+    v(1,1:ny+1)=2*vw-v(2,1:ny+1);               % west wall
+    v(nx+2,1:ny+1)=2*ve-v(nx+1,1:ny+1);         % east wall
     
     % Temporary u-velocity
     for i=2:nx
         for j=2:ny+1 
-            ut(i,j)=u(i,j)+dt*(-(0.25/h)*((u(i+1,j)+u(i,j))^2-(u(i,j)+...
-                    u(i-1,j))^2+(u(i,j+1)+u(i,j))*(v(i+1,j)+...
-                    v(i,j))-(u(i,j)+u(i,j-1))*(v(i+1,j-1)+v(i,j-1)))+...
-                    (nu/h^2)*(u(i+1,j)+u(i-1,j)+u(i,j+1)+u(i,j-1)-4*u(i,j)));
+            
+            ue2 = 0.25*( u(i+1,j)+u(i,j) )^2;
+            uw2 = 0.25*( u(i,j)+u(i-1,j) )^2;
+            unv = 0.25*( u(i,j+1)+u(i,j) )*( v(i+1,j)+v(i,j) );
+            usv = 0.25*( u(i,j)+u(i,j-1) )*( v(i+1,j-1)+v(i,j-1) );
+            
+            A = (ue2-uw2+unv-usv)/h;
+            D = (nu/h^2)*(u(i+1,j)+u(i-1,j)+u(i,j+1)+u(i,j-1)-4*u(i,j));
+            
+            ut(i,j)=u(i,j)+dt*(-A+D);
+            
         end
     end
     
     % Temporary v-velocity
     for i=2:nx+1
         for j=2:ny 
-            vt(i,j)=v(i,j)+dt*(-(0.25/h)*((u(i,j+1)+u(i,j))*(v(i+1,j)+...
-                    v(i,j))-(u(i-1,j+1)+u(i-1,j))*(v(i,j)+v(i-1,j))+...
-                    (v(i,j+1)+v(i,j))^2-(v(i,j)+v(i,j-1))^2)+...
-                    (nu/h^2)*(v(i+1,j)+v(i-1,j)+v(i,j+1)+v(i,j-1)-4*v(i,j)));
+            
+            vn2 = 0.25*( v(i,j+1)+v(i,j) )^2;
+            vs2 = 0.25*( v(i,j)+v(i,j-1) )^2;
+            veu = 0.25*( u(i,j+1)+u(i,j) )*( v(i+1,j)+v(i,j) );
+            vwu = 0.25*( u(i-1,j+1)+u(i-1,j) )*( v(i,j)+v(i-1,j) );
+            A = (vn2 - vs2 + veu - vwu)/h;
+            D = (nu/h^2)*(v(i+1,j)+v(i-1,j)+v(i,j+1)+v(i,j-1)-4*v(i,j));
+            
+            vt(i,j)=v(i,j)+dt*(-A+D);
+            
         end
     end
     
@@ -155,9 +165,11 @@ for is=1:nsteps
         po=p;
         for i=2:nx+1
             for j=2:ny+1
-                p(i,j)=beta*c(i,j)*(p(i+1,j)+p(i-1,j)+p(i,j+1)+p(i,j-1)-...
-                        (h/dt)*(ut(i,j)-ut(i-1,j)+vt(i,j)-vt(i,j-1)))+...
-                        (1-beta)*p(i,j);
+                
+                delta = p(i+1,j)+p(i-1,j)+p(i,j+1)+p(i,j-1);
+                S = (h/dt)*(ut(i,j)-ut(i-1,j)+vt(i,j)-vt(i,j-1));
+                p(i,j)=beta*gamma(i,j)*( delta-S )+(1-beta)*p(i,j);
+                
             end
         end
         
@@ -181,64 +193,88 @@ for is=1:nsteps
     u(2:nx,2:ny+1)=ut(2:nx,2:ny+1)-(dt/h)*(p(3:nx+1,2:ny+1)-p(2:nx,2:ny+1));
     v(2:nx+1,2:ny)=vt(2:nx+1,2:ny)-(dt/h)*(p(2:nx+1,3:ny+1)-p(2:nx+1,2:ny));
     
-    fprintf('Step: %d - Time: %f - Poisson iterations: %d\n', is, t, it);
- 
+    if (mod(is,25)==1)
+        fprintf('Step: %d - Time: %f - Poisson iterations: %d\n', is, t, it);
+    end
+    
     % Advance time
     t=t+dt;
  
-    % Post-processing
-    uu(1:nx+1,1:ny+1)=0.5*(u(1:nx+1,2:ny+2)+u(1:nx+1,1:ny+1));
-    vv(1:nx+1,1:ny+1)=0.5*(v(2:nx+2,1:ny+1)+v(1:nx+1,1:ny+1));
-    omega(1:nx+1,1:ny+1)=(  u(1:nx+1,2:ny+2)-u(1:nx+1,1:ny+1)-...
-                            v(2:nx+2,1:ny+1)+v(1:nx+1,1:ny+1) )/(2*h);
- 
-    % Contour: vorticity
-    subplot(241);
-    contour(x,y,omega,20);
-    axis('square');
-    xlabel('x [m]');ylabel('y [m]'); title('vorticity contour');
-    hold off;
-    
-    % Contour: x-velocity
-    subplot(242);
-    contour(x,y,uu);
-    axis('square');
-    xlabel('x [m]');ylabel('y [m]'); title('x-velocity contour');
-    hold off;
-    
-    % Contour: y-velocity
-    subplot(246);
-    contour(x,y,vv);
-    axis('square');
-    xlabel('x [m]');ylabel('y [m]'); title('y-velocity contour');
-    
-    % Plot: velocity components along the horizontal middle axis
-    subplot(243);
-    plot(x(:,round(ny/2)),uu(:, round(ny/2)));
-    hold on;
-    plot(x(:,round(ny/2)),vv(:, round(ny/2)));
-    axis('square');
-    xlabel('x [m]');ylabel('velocity [m/s]'); title('velocity along x-axis');
-    legend('x-velocity', 'y-velocity');
-    hold off;
-
-    % Plot: velocity components along the vertical middle axis
-    subplot(247);
-    plot(y(round(nx/2),:),uu(round(nx/2),:));
-    hold on;
-    plot(y(round(nx/2),:),vv(round(nx/2),:));
-    axis('square');
-    xlabel('y [m]');ylabel('velocity [m/s]'); title('velocity along y-axis');
-    legend('x-velocity', 'y-velocity');
-    hold off;
-    
-    % Velocity vector field
-    subplot(244);
-    quiver(x,y,uu,vv);
-    axis('square','equal');
-    xlabel('x [m]');ylabel('y [m]'); title('velocity vector field');
-
-    pause(0.01)
-    
 end
 
+% ----------------------------------------------------------------------- %
+% Final post-processing                                                   %
+% ----------------------------------------------------------------------- %
+
+% Field reconstruction
+uu(1:nx+1,1:ny+1)=0.50*(u(1:nx+1,2:ny+2)+u(1:nx+1,1:ny+1));
+vv(1:nx+1,1:ny+1)=0.50*(v(2:nx+2,1:ny+1)+v(1:nx+1,1:ny+1));
+pp(1:nx+1,1:ny+1)=0.25*(p(1:nx+1,1:ny+1)+p(1:nx+1,2:ny+2)+...
+                        p(2:nx+2,1:ny+1)+p(2:nx+2,2:ny+2));
+
+% Surface map: u-velocity
+subplot(231);
+surface(X,Y,uu');
+axis('square'); title('u'); xlabel('x'); ylabel('y');
+
+% Surface map: v-velocity
+subplot(234);
+surface(X,Y,vv');
+axis('square'); title('v'); xlabel('x'); ylabel('y');
+
+% Surface map: pressure
+% subplot(232);
+% surface(X,Y,pp');
+% axis('square'); title('pressure'); xlabel('x'); ylabel('y');
+
+% Streamlines
+subplot(233);
+sx = 0:2*h:1;
+sy = 0:2*h:1;
+streamline(X,Y,uu',vv',sx,sy)
+axis([0 1 0 1], 'square');
+title('streamlines'); xlabel('x'); ylabel('y');
+
+% Surface map: velocity vectors
+subplot(236);
+quiver(X,Y,uu',vv');
+axis([0 1 0 1], 'square');
+title('velocity vector field'); xlabel('x'); ylabel('y');
+
+% Plot: velocity components along the horizontal middle axis
+subplot(232);
+plot(x,uu(:, round(ny/2)+1));
+hold on;
+plot(x,vv(:, round(ny/2)+1));
+axis('square');
+xlabel('x [m]');ylabel('velocity [m/s]'); title('velocity along x-axis');
+legend('x-velocity', 'y-velocity');
+hold off;
+
+% Plot: velocity components along the horizontal middle axis
+subplot(235);
+plot(y,uu(round(nx/2)+1,:));
+hold on;
+plot(y,vv(round(nx/2)+1,:));
+axis('square');
+xlabel('y [m]');ylabel('velocity [m/s]'); title('velocity along y-axis');
+legend('x-velocity', 'y-velocity');
+hold off;
+
+
+% ------------------------------------------------------------------- %
+% Write velocity profiles along the centerlines for exp comparison
+% ------------------------------------------------------------------- %
+u_profile = uu(round(nx/2)+1,:);
+fileVertical = fopen('vertical.txt','w');
+for i=1:ny+1 
+    fprintf(fileVertical,'%f %f\n',y(i), u_profile(i));
+end
+fclose(fileVertical);
+
+v_profile = vv(:,round(ny/2)+1);
+fileHorizontal = fopen('horizontal.txt','w');
+for i=1:nx+1
+    fprintf(fileHorizontal,'%f %f\n',x(i), v_profile(i));
+end
+fclose(fileHorizontal);
