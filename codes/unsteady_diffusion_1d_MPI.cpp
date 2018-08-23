@@ -51,8 +51,8 @@
 #include <mpi.h>
 
 
-double boundary_condition(const double x, const double t);
-double initial_condition(const double x, const double t);
+inline double boundary_condition(const double x, const double t);
+inline double initial_condition(const double x, const double t);
 double analytical_solution(const double x, const double t);
 void update(const int id, const int n_procs, double* phi);
 
@@ -237,6 +237,16 @@ int main(int argc, char *argv[])
 
 void update(const int id, const int n_procs, double* phi)
 {
+	MPI_Status status;
+
+	int predecessor;
+	if (id > 0)	predecessor = id - 1;
+	else        predecessor = MPI_PROC_NULL;
+
+	int successor;
+	if (id < n_procs - 1) successor = id + 1;
+	else                  successor = MPI_PROC_NULL;
+
 	const int n = data.n_points / n_procs;	// local number of points
 	
 	double *phi_new;						// updated unknown (local)
@@ -260,89 +270,113 @@ void update(const int id, const int n_procs, double* phi)
 	//  Compute the values of H at the next time, based on current data
 	for (int j = 1; j <= data.n_time_steps; j++)
 	{
-
 		const double time_new = static_cast<double>(j)/
 								static_cast<double>(data.n_time_steps) * data.time_end;
 		
 		// Message Passing Interface (MPI)
+		const int mpi_version = 4;
+
+		if (mpi_version == 1)
 		{
-			MPI_Status status;
-
-			/*
-			//  Send phi[1] to ID-1 (the first ID is excluded)
-			if (id > 0)
 			{
-				const int tag = 1;
-				MPI_Send(&phi[1], 1, MPI_DOUBLE, id - 1, tag, MPI_COMM_WORLD);
+				MPI_Send(&phi[1], 1, MPI_DOUBLE, predecessor, 1, MPI_COMM_WORLD);
+				MPI_Recv(&phi[n + 1], 1, MPI_DOUBLE, successor, 1, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
 			}
 
-			//  Receive phi[N+1] from ID+1 (the last ID is excluded)
-			if (id < n_procs - 1)
 			{
-				const int tag = 1;
-				MPI_Recv(&phi[n + 1], 1, MPI_DOUBLE, id + 1, tag, MPI_COMM_WORLD, &status);
+				MPI_Recv(&phi[0], 1, MPI_DOUBLE, predecessor, 2, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
+				MPI_Send(&phi[n], 1, MPI_DOUBLE, successor, 2, MPI_COMM_WORLD);
+			}
+		}
+
+		else if (mpi_version == 2)
+		{
+			if ((id % 2) == 1)
+			{
+				MPI_Send(&phi[1], 1, MPI_DOUBLE, predecessor, 1, MPI_COMM_WORLD);
+				MPI_Send(&phi[n], 1, MPI_DOUBLE, successor, 2, MPI_COMM_WORLD);
+			}
+			else
+			{
+				MPI_Recv(&phi[n + 1], 1, MPI_DOUBLE, successor, 1, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
+				MPI_Recv(&phi[0], 1, MPI_DOUBLE, predecessor, 2, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
 			}
 
-			//  Send phi[N] to ID+1 (the last ID is excluded)
-			if (id < n_procs - 1)
+			if ((id % 2) == 0)
 			{
-				const int tag = 2;
-				MPI_Send(&phi[n], 1, MPI_DOUBLE, id + 1, tag, MPI_COMM_WORLD);
+				MPI_Send(&phi[1], 1, MPI_DOUBLE, predecessor, 1, MPI_COMM_WORLD);
+				MPI_Send(&phi[n], 1, MPI_DOUBLE, successor, 2, MPI_COMM_WORLD);
 			}
-
-			//  Receive phi[0] from ID-1 (the first ID is excluded)
-			if (id > 0)
+			else
 			{
-				const int tag = 2;
-				MPI_Recv(&phi[0], 1, MPI_DOUBLE, id - 1, tag, MPI_COMM_WORLD, &status);
+				MPI_Recv(&phi[n + 1], 1, MPI_DOUBLE, successor, 1, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
+				MPI_Recv(&phi[0], 1, MPI_DOUBLE, predecessor, 2, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
 			}
-			*/
+		}
 
-			int predecessor;
-			int successor;
-
-			if (id > 0)	predecessor = id - 1;
-			else        predecessor = MPI_PROC_NULL;
-
-			if (id < n_procs - 1) successor = id + 1;
-			else                  successor = MPI_PROC_NULL;
-
-
+		else if (mpi_version == 3)
+		{
 			if ((id % 2) == 0) // exchange-up
 			{
-				const int tag = 1;
-				MPI_Sendrecv(&phi[n], 1, MPI_DOUBLE, successor, tag,
-							 &phi[n+1], 1, MPI_DOUBLE, successor, tag,
-							 MPI_COMM_WORLD, &status);
+				MPI_Sendrecv(&phi[n], 1, MPI_DOUBLE, successor, 1,
+					&phi[n + 1], 1, MPI_DOUBLE, successor, 1,
+					MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
 			}
 			else // exchange-down
 			{
-				const int tag = 1;
-				MPI_Sendrecv(&phi[1], 1, MPI_DOUBLE, predecessor, tag,
-							 &phi[0], 1, MPI_DOUBLE, predecessor, tag,
-							 MPI_COMM_WORLD, &status);
+				MPI_Sendrecv(&phi[1], 1, MPI_DOUBLE, predecessor, 1,
+					&phi[0], 1, MPI_DOUBLE, predecessor, 1,
+					MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
 			}
 
 			if ((id % 2) == 1) // exchange-up
 			{
-				const int tag = 2;
-				MPI_Sendrecv(&phi[n], 1, MPI_DOUBLE, successor, tag,
-							 &phi[n+1], 1, MPI_DOUBLE, successor, tag,
-							 MPI_COMM_WORLD, &status);
+				MPI_Sendrecv(&phi[n], 1, MPI_DOUBLE, successor, 2,
+					&phi[n + 1], 1, MPI_DOUBLE, successor, 2,
+					MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
 			}
 			else // exchange-down
 			{
-				const int tag = 2;
-				MPI_Sendrecv(&phi[1], 1, MPI_DOUBLE, predecessor, tag,
-							 &phi[0], 1, MPI_DOUBLE, predecessor, tag,
-							 MPI_COMM_WORLD, &status);
+				MPI_Sendrecv(&phi[1], 1, MPI_DOUBLE, predecessor, 2,
+					&phi[0], 1, MPI_DOUBLE, predecessor, 2,
+					MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
 			}
 		}
 
+		else if (mpi_version == 4)
+		{
+			if ( (id % 2)==1 )
+			{
+				MPI_Send(&phi[1], 1, MPI_DOUBLE, predecessor, 0, MPI_COMM_WORLD);
+				MPI_Recv(&phi[n+1], 1, MPI_DOUBLE, successor, 0, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
+			}
+			else
+			{
+				MPI_Recv(&phi[0], 1, MPI_DOUBLE, predecessor, 1, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
+				MPI_Send(&phi[n], 1, MPI_DOUBLE, successor, 1, MPI_COMM_WORLD);
+			}
+
+			if ( (id % 2)==0 )
+			{
+				MPI_Send(&phi[1], 1, MPI_DOUBLE, predecessor, 0, MPI_COMM_WORLD);
+				MPI_Recv(&phi[n + 1], 1, MPI_DOUBLE, successor, 0, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
+			}
+			else
+			{
+				MPI_Recv(&phi[0], 1, MPI_DOUBLE, predecessor, 1, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
+				MPI_Send(&phi[n], 1, MPI_DOUBLE, successor, 1, MPI_COMM_WORLD);
+			}
+		}
+
+		double sum = 0.;
+		for (int j = 0; j < 100000; j++)
+			sum += j * id*time;
+		phi_new[1] = sum;
+
 		//  Update the unknown based on the four point stencil.
 		for (int i = 1; i <= n; i++)
-			phi_new[i] = phi[i] + data.cfl*(phi[i-1] - 2.*phi[i] + phi[i+1]);
-		
+			phi_new[i] = phi[i] + data.cfl*(phi[i - 1] - 2.*phi[i] + phi[i + 1]);
+
 		// phi at the boundaries was incorrectly computed using the differential equation.  
 		// Replace that calculation by the boundary conditions.
 		if (id == 0)
@@ -351,7 +385,7 @@ void update(const int id, const int n_procs, double* phi)
 		if (id == n_procs - 1)
 			phi_new[n] = boundary_condition(x[n], time_new);
 		
-		//  Update time and unknown
+		// Update time and unknown
 		time = time_new;
 		for (int i = 1; i <= n; i++)
 			phi[i] = phi_new[i];
@@ -363,12 +397,12 @@ void update(const int id, const int n_procs, double* phi)
 	return;
 }
 
-double boundary_condition(const double x, const double t)
+inline double boundary_condition(const double x, const double t)
 {
 	return 0.;
 }
 
-double initial_condition(const double x, const double t)
+inline double initial_condition(const double x, const double t)
 {
 	return 100.;
 }
