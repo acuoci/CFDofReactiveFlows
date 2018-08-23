@@ -257,7 +257,7 @@ void update(const int id, const int n_procs, double* phi)
 		phi[i] = initial_condition(x[i], time);
 	phi[n + 1] = 0.0;
 	
-	//  Compute the values of H at the next time, based on current data.
+	//  Compute the values of H at the next time, based on current data
 	for (int j = 1; j <= data.n_time_steps; j++)
 	{
 
@@ -275,13 +275,6 @@ void update(const int id, const int n_procs, double* phi)
 				MPI_Send(&phi[1], 1, MPI_DOUBLE, id - 1, tag, MPI_COMM_WORLD);
 			}
 
-			//  Receive phi[0] from ID-1 (the first ID is excluded)
-			if (id > 0)
-			{
-				const int tag = 2;
-				MPI_Recv(&phi[0], 1, MPI_DOUBLE, id - 1, tag, MPI_COMM_WORLD, &status);
-			}
-
 			//  Receive phi[N+1] from ID+1 (the last ID is excluded)
 			if (id < n_procs - 1)
 			{
@@ -294,6 +287,13 @@ void update(const int id, const int n_procs, double* phi)
 			{
 				const int tag = 2;
 				MPI_Send(&phi[n], 1, MPI_DOUBLE, id + 1, tag, MPI_COMM_WORLD);
+			}
+
+			//  Receive phi[0] from ID-1 (the first ID is excluded)
+			if (id > 0)
+			{
+				const int tag = 2;
+				MPI_Recv(&phi[0], 1, MPI_DOUBLE, id - 1, tag, MPI_COMM_WORLD, &status);
 			}
 		}
 
