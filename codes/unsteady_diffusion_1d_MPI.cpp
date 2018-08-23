@@ -268,6 +268,7 @@ void update(const int id, const int n_procs, double* phi)
 		{
 			MPI_Status status;
 
+			/*
 			//  Send phi[1] to ID-1 (the first ID is excluded)
 			if (id > 0)
 			{
@@ -294,6 +295,47 @@ void update(const int id, const int n_procs, double* phi)
 			{
 				const int tag = 2;
 				MPI_Recv(&phi[0], 1, MPI_DOUBLE, id - 1, tag, MPI_COMM_WORLD, &status);
+			}
+			*/
+
+			int predecessor;
+			int successor;
+
+			if (id > 0)	predecessor = id - 1;
+			else        predecessor = MPI_PROC_NULL;
+
+			if (id < n_procs - 1) successor = id + 1;
+			else                  successor = MPI_PROC_NULL;
+
+
+			if ((id % 2) == 0) // exchange-up
+			{
+				const int tag = 1;
+				MPI_Sendrecv(&phi[n], 1, MPI_DOUBLE, successor, tag,
+							 &phi[n+1], 1, MPI_DOUBLE, successor, tag,
+							 MPI_COMM_WORLD, &status);
+			}
+			else // exchange-down
+			{
+				const int tag = 1;
+				MPI_Sendrecv(&phi[1], 1, MPI_DOUBLE, predecessor, tag,
+							 &phi[0], 1, MPI_DOUBLE, predecessor, tag,
+							 MPI_COMM_WORLD, &status);
+			}
+
+			if ((id % 2) == 1) // exchange-up
+			{
+				const int tag = 2;
+				MPI_Sendrecv(&phi[n], 1, MPI_DOUBLE, successor, tag,
+							 &phi[n+1], 1, MPI_DOUBLE, successor, tag,
+							 MPI_COMM_WORLD, &status);
+			}
+			else // exchange-down
+			{
+				const int tag = 2;
+				MPI_Sendrecv(&phi[1], 1, MPI_DOUBLE, predecessor, tag,
+							 &phi[0], 1, MPI_DOUBLE, predecessor, tag,
+							 MPI_COMM_WORLD, &status);
 			}
 		}
 
