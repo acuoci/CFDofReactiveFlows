@@ -17,7 +17,7 @@
 %                                                                         %
 %	License                                                               %
 %                                                                         %
-%   Copyright(C) 2017 Alberto Cuoci                                       %
+%   Copyright(C) 2019 Alberto Cuoci                                       %
 %   Matlab4CFDofRF is free software: you can redistribute it and/or       %
 %   modify it under the terms of the GNU General Public License as        %
 %   published by the Free Software Foundation, either version 3 of the    %
@@ -41,20 +41,25 @@
 close all;
 clear variables;
 
-% two-dimensional unsteady diffusion by the FTCS scheme
-%------------------------------------------------------------
+% User-defined data
+%-------------------------------------------------------------------------%
 nx=33;                  % number of grid points along x
 ny=33;                  % number of grid points along y
 nstep=150;              % number of time steps
 lengthx=2.0;            % domain length along x [m]
 lengthy=2.0;            % domain length along y [m]
-hx=lengthx/(nx-1);      % grid step along x [m]
-hy=lengthy/(ny-1);      % grid step along y [m] 
 D=0.025;                % diffusion coefficient [m2/s]
 u=-1;                   % velocity along x [m/s]
 v= 0;                   % velocity along y [m/s]
+fin=1;                  % inlet value of f
 
-% Time step limits
+% Pre-processing of user-defined data
+%-------------------------------------------------------------------------%
+% Calculate grid steps
+hx=lengthx/(nx-1);      % grid step along x [m]
+hy=lengthy/(ny-1);      % grid step along y [m] 
+
+% Numerical setup: time step (stability conditions)
 sigma = 0.75;                     % safety coefficient
 dt_diff  = 1/4*hx*hy/D;           % diffusion [s]
 dt_conv = 4*D/(u^2+v^2);          % convection [s]
@@ -64,23 +69,26 @@ dt = sigma*min(dt_diff, dt_conv); % time step [s]
 f=zeros(nx,ny);     % current numerical solution
 fo=zeros(nx,ny);    % previous numerical solution
 
-% Grid axes
+% Dirichlet boundary conditions along the east side
+f(nx, ny*1/3:ny*2/3) = fin;
+
+% Definition of rectangular mesh (graphical purposes only)
 xaxis = 0:hx:lengthx;
 yaxis = 0:hy:lengthy;
 
-% Boundary conditions
-f(nx, ny*1/3:ny*2/3) = 1;
-
-% Prepare video
-videompg4 = VideoWriter('advection_diffusion_2d.mp4', 'MPEG-4');
+% Video setup
+%-------------------------------------------------------------------------%
+video_name = 'advection_diffusion_2d.mp4';
+videompg4 = VideoWriter(video_name, 'MPEG-4');
 open(videompg4);
 
-% Time loop
-t = 0;
-for l=1:nstep
+% Advancing in time
+%-------------------------------------------------------------------------%
+t = 0.;
+for m=1:nstep
     
-    % Graphics only
-	hold off; 
+    % Plot the current solution
+    hold off; 
     mesh(xaxis, yaxis, f'); 
     axis([0 lengthx 0 lengthy 0 1.25]);
     xlabel('x'); ylabel('y'); zlabel('f');
@@ -88,9 +96,9 @@ for l=1:nstep
     time = annotation('textbox',[0.15 0.8 0.15 0.15],'String',message,'EdgeColor','none');
     frame = getframe(gcf);
     writeVideo(videompg4,frame);
-    delete(time);
-    
-    % Forward Euler
+    delete(time); 
+
+    % Forward Euler method
     fo=f;
     for i=2:nx-1
         for j=2:ny-1
@@ -100,26 +108,16 @@ for l=1:nstep
                     +(D*dt/hx^2)*(fo(i+1,j)-2*fo(i,j)+fo(i-1,j))...
                     +(D*dt/hy^2)*(fo(i,j+1)-2*fo(i,j)+fo(i,j-1));
         end
-    end
+    end   
     
-    % Boundary conditions: south side (Neumann)
-    for i=1:nx
-        f(i,1)=f(i,2);
-    end
+    % Boundary conditions (Neumann's only)
+    f(1:nx,1)=f(1:nx,2);        % south
+    f(1:nx,ny)=f(1:nx,ny-1);    % north
+    f(1,1:ny)=f(2,1:ny);        % west
     
-    % Boundary conditions: north side (Neumann)
-    for i=1:nx
-        f(i,ny)=f(i,ny-1);
-    end
-    
-    % Boundary conditions: west side (Neumann)
-    for j=1:ny
-        f(1,j)=f(2,j);
-    end
-    
-    % Advance time
+    % New time step
     t=t+dt;
     
 end
-
+% Closing the video stream
 close(videompg4);
