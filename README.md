@@ -17,8 +17,12 @@ The Poisson equation is solved on a 2D rectangular domain using the finite-diffe
 * Matlab live script: [poisson_2d_live.mlx](codes/poisson_2d_live.mlx)
 
 ## 4. Navier-Stokes equations in 2D: vorticity-streamline formulation
-The Navier-Stokes equations for an incompressible fluid are solved on a 2D rectangular domain according to the vorticity-streamline formulation. The vorticity advection-diffusion equation is dolved using the forward Euler method and 2nd order, centered spatial discretizations. The streamline function Poisson equation is solved using the Successive Over-Relaxation method and 2nd order, centered discretization for the spatial derivatives. 
+The Navier-Stokes equations for an incompressible fluid are solved on a 2D rectangular domain according to the vorticity-streamline formulation. The vorticity advection-diffusion equation is solved using the forward Euler method and 2nd order, centered spatial discretizations. The streamline function Poisson equation is solved using the Successive Over-Relaxation method and 2nd order, centered discretization for the spatial derivatives. 
 * Matlab script (square domain, uniform grid): [driven_cavity_2d_vorticity.m](codes/driven_cavity/driven_cavity_2d_vorticity.m)
 * Matlab live script (square domain, uniform grid): [driven_cavity_2d_vorticity_live.mlx](codes/driven_cavity/driven_cavity_2d_vorticity_live.mlx)
 * C++ code (square domain, uniform grid): [driven_cavity_2d_vorticity.cpp](codes/driven_cavity/driven_cavity_2d_vorticity.cpp)
 * Matlab script (rectangular domain, non-uniform grid): [driven_cavity_2d_vorticity_nonuniform.m](codes/driven_cavity/driven_cavity_2d_vorticity_nonuniform.m)
+
+## 5. Navier-Stokes equations in 2D: staggered grid and projection algorithm
+The Navier-Stokes equations for an incompressible fluid are solved on a 2D rectangular domain meshed with a staggered grid. The momentum equations are solved using the forward Euler method and 2nd order, centered spatial discretizations. The projection algorithm is adopted for managing the coupling between pressure and velocity. In particular, the corresponding Poisson equation for pressure is solved using the Successive Over-Relaxation method and 2nd order, centered discretization for the spatial derivatives. 
+* Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered.m](codes/driven_cavity/driven_cavity_2d_staggered.m)
