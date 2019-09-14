@@ -16,7 +16,8 @@ The Poisson equation is solved on a 2D rectangular domain using the finite-diffe
 * Matlab script: [poisson_2d.m](codes/poisson_2d.m)
 * Matlab live script: [poisson_2d_live.mlx](codes/poisson_2d_live.mlx)
 
-## 3. Navier-Stokes equations in 2D: vorticity-streamline formulation
+## 4. Navier-Stokes equations in 2D: vorticity-streamline formulation
 The Navier-Stokes equations for an incompressible fluid are solved on a 2D rectangular domain according to the vorticity-streamline formulation. The vorticity advection-diffusion equation is dolved using the forward Euler method and 2nd order, centered spatial discretizations. The streamline function Poisson equation is solved using the Successive Over-Relaxation method and 2nd order, centered discretization for the spatial derivatives. 
 * Matlab script (square domain, uniform grid): [driven_cavity_2d_vorticity.m](codes/driven_cavity/driven_cavity_2d_vorticity.m)
 * Matlab live script (square domain, uniform grid): [driven_cavity_2d_vorticity_live.mlx](codes/driven_cavity/driven_cavity_2d_vorticity_live.mlx)
+* Matlab script (rectangular domain, non-uniform grid): [driven_cavity_2d_vorticity_nonuniform.m](codes/driven_cavity/driven_cavity_2d_vorticity_nonuniform.m)
