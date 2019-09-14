@@ -15,9 +15,9 @@
 %                                                                         %
 %   This file is part of Matlab4CFDofRF framework.                        %
 %                                                                         %
-%	License                                                               %
+%   License                                                               %
 %                                                                         %
-%   Copyright(C) 2017 Alberto Cuoci                                       %
+%   Copyright(C) 2019 Alberto Cuoci                                       %
 %   Matlab4CFDofRF is free software: you can redistribute it and/or       %
 %   modify it under the terms of the GNU General Public License as        %
 %   published by the Free Software Foundation, either version 3 of the    %
@@ -44,7 +44,6 @@ clear variables;
 % Basic setup
 nx=25;                  % number of grid points along x
 ny=nx;                  % number of grid points along y
-h=1/(nx-1);             % grid step along [-]
 Re=100;                 % Reynolds number [-]
 tau=10;                 % total time of simulation [-]
 
@@ -57,6 +56,9 @@ max_error=0.00001;      % error for convergence
 L=1;                    % length [m]
 nu=1e-3;                % kinematic viscosity [m2/s] 
 Uwall=nu*Re/L;          % wall velocity [m/s]
+
+% Grid step
+h=1/(nx-1);                         % grid step along x and y [-]
 
 % Time step
 sigma = 0.5;                        % safety factor for time step (stability)
@@ -91,35 +93,11 @@ for istep=1:nsteps
     % ------------------------------------------------------------------- %
     % Poisson equation (SOR)
     % ------------------------------------------------------------------- %
-    for iter=1:max_iterations
-        
-        psio=psi;
-        for i=2:nx-1
-            for j=2:ny-1 % solve for the stream function by SOR iteration
-                psi(i,j)=0.25*beta*(psi(i+1,j)+psi(i-1,j)+psi(i,j+1)+...
-                            psi(i,j-1)+h*h*omega(i,j))+(1.0-beta)*psi(i,j);
-            end
-        end
-        
-        % Estimate the error
-        epsilon=0.0; 
-        for i=1:nx
-            for j=1:ny
-                epsilon=epsilon+abs(psio(i,j)-psi(i,j)); 
-            end
-        end
-        epsilon = epsilon/nx/ny;
-        
-        % Check the error
-        if (epsilon <= max_error) % stop if converged
-            break;
-        end 
-    end
+    [psi, iter] = Poisson2D(psi, nx, ny, h, omega, beta, max_iterations, max_error);
     
     % ------------------------------------------------------------------- %
     % Find vorticity on boundaries
     % ------------------------------------------------------------------- %
-    
     omega(2:nx-1,1)=-2.0*psi(2:nx-1,2)/(h*h);               % south
     omega(2:nx-1,ny)=-2.0*psi(2:nx-1,ny-1)/(h*h)-2.0/h*1;   % north
     omega(1,2:ny-1)=-2.0*psi(2,2:ny-1)/(h*h);               % east
@@ -147,8 +125,7 @@ for istep=1:nsteps
     
     % ------------------------------------------------------------------- %
     % Reconstruction of dimensionless velocity field
-    % ------------------------------------------------------------------- %
-    
+    % ------------------------------------------------------------------- % 
     u(:,ny)=1;
     for i=2:nx-1 
          for j=2:ny-1
@@ -247,15 +224,65 @@ title('stream lines'); xlabel('x'); ylabel('y');
 % Write velocity profiles along the centerlines for exp comparison
 % ------------------------------------------------------------------- %
 u_profile = u(round(nx/2),:);
-fileVertical = fopen('vertical.txt','w');
+fileVertical = fopen('experimental_data/vertical.out','w');
 for i=1:ny 
     fprintf(fileVertical,'%f %f\n',y(i), u_profile(i));
 end
 fclose(fileVertical);
 
 v_profile = v(:,round(ny/2));
-fileHorizontal = fopen('horizontal.txt','w');
+fileHorizontal = fopen('experimental_data/horizontal.out','w');
 for i=1:nx
     fprintf(fileHorizontal,'%f %f\n',x(i), v_profile(i));
 end
 fclose(fileHorizontal);
+
+% ------------------------------------------------------------------- %
+% Compare with exp data (available only for Re=100, 400, and 1000)
+% ------------------------------------------------------------------- %
+% Read experimental data from file
+exp_u_along_y = dlmread('experimental_data/u_along_y.exp', '', 1, 0);
+exp_v_along_x = dlmread('experimental_data/v_along_x.exp', '', 1, 0);
+
+% Comparison with exp data
+% Be careful: cols 1,2 for Re=100, 3,4 for Re=400, 5,6 for Re=1000
+figure;
+plot(exp_u_along_y(:,1), exp_u_along_y(:,2), 'o', y, u_profile, '-');
+axis('square'); title('u along y (centerline)'); xlabel('y'); ylabel('u');
+
+figure;
+plot(exp_v_along_x(:,1), exp_v_along_x(:,2), 'o', x, v_profile, '-');
+axis('square'); title('v along x (centerline)'); xlabel('x'); ylabel('v');
+
+
+% --------------------------------------------------------------------------------------
+% Poisson equation solver
+% --------------------------------------------------------------------------------------
+function [psi, iter] = Poisson2D(psi, nx, ny, h, omega, beta, max_iterations, max_error)
+
+    for iter=1:max_iterations
+
+            psio=psi;
+            for i=2:nx-1
+                for j=2:ny-1 % solve for the stream function by SOR iteration
+                    psi(i,j)=0.25*beta*(psi(i+1,j)+psi(i-1,j)+psi(i,j+1)+...
+                                psi(i,j-1)+h*h*omega(i,j))+(1.0-beta)*psi(i,j);
+                end
+            end
+
+            % Estimate the error
+            epsilon=0.0; 
+            for i=1:nx
+                for j=1:ny
+                    epsilon=epsilon+abs(psio(i,j)-psi(i,j)); 
+                end
+            end
+            epsilon = epsilon/nx/ny;
+
+            % Check the error
+            if (epsilon <= max_error) % stop if converged
+                break;
+            end 
+    end
+    
+end
