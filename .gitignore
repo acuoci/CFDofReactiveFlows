@@ -3,6 +3,9 @@
 ## We have git for backups!
 ##---------------------------------------------------
 
+# Output files
+*.out
+
 # Windows default autosave extension
 *.asv
 
