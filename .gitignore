@@ -6,6 +6,9 @@
 # Output files
 *.out
 
+# Backup files
+*.backup
+
 # Windows default autosave extension
 *.asv
 
