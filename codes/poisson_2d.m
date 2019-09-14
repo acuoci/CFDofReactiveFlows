@@ -17,7 +17,7 @@
 %                                                                         %
 %	License                                                               %
 %                                                                         %
-%   Copyright(C) 2017 Alberto Cuoci                                       %
+%   Copyright(C) 2019 Alberto Cuoci                                       %
 %   Matlab4CFDofRF is free software: you can redistribute it and/or       %
 %   modify it under the terms of the GNU General Public License as        %
 %   published by the Free Software Foundation, either version 3 of the    %
@@ -41,35 +41,40 @@
 close all;
 clear variables;
 
+% User-defined data
+%-------------------------------------------------------------------------%
+lengthx=2.0;            % domain length along x [m]
+lengthy=2.0;            % domain length along y [m]
 nx=39;                  % number of grid points along x
 ny=39;                  % number of grid points along y
 max_iterations=5000;    % max number of iterations
-lengthx=2.0;            % domain length along x [m]
-lengthy=2.0;            % domain length along y [m]
+beta=1.;                % SOR coefficient (1 means Gauss-Siedler)
+
+% Pre-processing of user-defined data
+%-------------------------------------------------------------------------%
+% Grid step calculation
 hx=lengthx/(nx-1);      % grid step along x [m]
-hy=lengthy/(ny-1);      % grid step along y [m] 
-beta=1.;                % SOR coefficient
+hy=lengthy/(ny-1);      % grid step along y [m]
 
 % Memory allocation
-T=zeros(nx,ny);
-S=zeros(nx,ny);
-
-% Grid axes
-xaxis = 0:hx:lengthx;
-yaxis = 0:hy:lengthy;
+f=zeros(nx,ny);         % current solution
+S=zeros(nx,ny);         % source term
 
 % Boundary conditions (west side)
-T(1, ny*1/3:ny*2/3) = 1;
+f(1, ny*1/3:ny*2/3) = 1;
 
 % Iterations
+%-------------------------------------------------------------------------%
 for l=1:max_iterations
     
     for i=2:nx-1
         for j=2:ny-1
-            T(i,j)= beta*(hx^2*hy^2/2/(hx^2+hy^2))*...
-                    ( (T(i+1,j)+T(i-1,j))/hx^2+(T(i,j+1)+T(i,j-1))/hy^2 ...
-                      -S(i,j) )+ ...
-                    (1.0-beta)*T(i,j);
+            f(i,j)= beta/(2*(hx^2+hy^2))*...
+                    (   (f(i+1,j)+f(i-1,j))*hy^2 ...
+                      + (f(i,j+1)+f(i,j-1))*hx^2 ...
+                      - hx^2*hy^2*S(i,j) ...
+                    ) + ...
+                    (1.0-beta)*f(i,j);
         end
     end
     
@@ -77,8 +82,8 @@ for l=1:max_iterations
     res=0;
     for i=2:nx-1
         for j=2:ny-1
-            res=res+abs( (T(i+1,j)-2*T(i,j)+T(i-1,j))/hx^2 + ...
-                         (T(i,j+1)-2*T(i,j)+T(i,j-1))/hy^2 - S(i,j) );
+            res=res+abs( (f(i+1,j)-2*f(i,j)+f(i-1,j))/hx^2 + ...
+                         (f(i,j+1)-2*f(i,j)+f(i,j-1))/hy^2 - S(i,j) );
         end
     end
     
@@ -89,4 +94,9 @@ for l=1:max_iterations
         break;
     end
 end
-contour(xaxis, yaxis, T');
+
+% Graphical output
+%-------------------------------------------------------------------------%
+xaxis = 0:hx:lengthx;
+yaxis = 0:hy:lengthy;
+contour(xaxis, yaxis, f');
