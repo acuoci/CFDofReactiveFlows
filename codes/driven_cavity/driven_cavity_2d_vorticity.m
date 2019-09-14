@@ -45,12 +45,12 @@ clear variables;
 nx=25;                  % number of grid points along x
 ny=nx;                  % number of grid points along y
 Re=100;                 % Reynolds number [-]
-tau=10;                 % total time of simulation [-]
+tau=20;                 % total time of simulation [-]
 
 % Parameters for SOR
 max_iterations=10000;   % maximum number of iterations
 beta=1.9;               % SOR coefficient
-max_error=0.00001;      % error for convergence
+max_error=0.0001;      % error for convergence
 
 % Data for reconstructing the velocity field
 L=1;                    % length [m]
@@ -74,7 +74,6 @@ fprintf(' - Convection: %f\n', dt_conv);
 % Memory allocation
 psi=zeros(nx,ny);       % streamline function
 omega=zeros(nx,ny);     % vorticity
-psio=zeros(nx,ny);      % streamline function at previous time
 omegao=zeros(nx,ny);    % vorticity at previous time
 u=zeros(nx,ny);         % reconstructed dimensionless x-velocity
 v=zeros(nx,ny);         % reconstructed dimensionless y-velocity
@@ -93,7 +92,8 @@ for istep=1:nsteps
     % ------------------------------------------------------------------- %
     % Poisson equation (SOR)
     % ------------------------------------------------------------------- %
-    [psi, iter] = Poisson2D(psi, nx, ny, h, omega, beta, max_iterations, max_error);
+    [psi, iter] = Poisson2D( psi, nx, ny, h, omega, ...
+                             beta, max_iterations, max_error);
     
     % ------------------------------------------------------------------- %
     % Find vorticity on boundaries
@@ -262,7 +262,6 @@ function [psi, iter] = Poisson2D(psi, nx, ny, h, omega, beta, max_iterations, ma
 
     for iter=1:max_iterations
 
-            psio=psi;
             for i=2:nx-1
                 for j=2:ny-1 % solve for the stream function by SOR iteration
                     psi(i,j)=0.25*beta*(psi(i+1,j)+psi(i-1,j)+psi(i,j+1)+...
@@ -272,12 +271,14 @@ function [psi, iter] = Poisson2D(psi, nx, ny, h, omega, beta, max_iterations, ma
 
             % Estimate the error
             epsilon=0.0; 
-            for i=1:nx
-                for j=1:ny
-                    epsilon=epsilon+abs(psio(i,j)-psi(i,j)); 
+            for i=2:nx-1
+                for j=2:ny-1
+                    epsilon=epsilon+abs( ( psi(i+1,j) - 2*psi(i,j) + psi(i-1,j) )/h^2 + ...
+                                         ( psi(i,j+1) - 2*psi(i,j) + psi(i,j-1) )/h^2 + ...
+                                         omega(i,j)  ); 
                 end
             end
-            epsilon = epsilon/nx/ny;
+            epsilon = epsilon/(nx-2)/(ny-2);
 
             % Check the error
             if (epsilon <= max_error) % stop if converged

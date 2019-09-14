@@ -43,8 +43,8 @@ clear variables;
 
 % Basic setup
 Ly_over_Lx = 1.;        % ratio between y and x lengths
-nx=50;                  % number of grid points along x
-ny=50;                  % number of grid points along y
+nx=25;                  % number of grid points along x
+ny=25;                  % number of grid points along y
 deltax=2;               % stretching factor along x
 deltay=2;               % stretching factor along y
 Re=100;                 % Reynolds number [-]
