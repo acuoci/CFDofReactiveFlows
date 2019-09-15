@@ -50,17 +50,6 @@ deltay=2;               % stretching factor along y
 Re=100;                 % Reynolds number [-]
 tau=20;                 % total time of simulation [-]
 
-% Grid construction
-x = zeros(nx,1);
-for i=1:nx
-    x(i) = 0.5*(1+tanh(deltax*((i-1)/(nx-1)-0.5))/tanh(deltax/2));
-end
-y = zeros(ny,1);
-for i=1:ny
-    y(i) = 0.5*(1+tanh(deltay*((i-1)/(ny-1)-0.5))/tanh(deltay/2));
-end
-y = Ly_over_Lx*y;
-
 % Data for reconstructing the velocity field
 L=1;                     % length along x [m] (used as reference length)
 nu=1e-3;                 % kinematic viscosity [m2/s] 
@@ -70,6 +59,17 @@ Uwall=nu*Re/L;           % wall velocity [m/s]
 max_iterations=10000;   % maximum number of iterations
 beta=1.5;               % SOR coefficient
 max_error=0.0001;       % error for convergence
+
+% Grid construction (dimensionless)
+x = zeros(nx,1);
+for i=1:nx
+    x(i) = 0.5*(1+tanh(deltax*((i-1)/(nx-1)-0.5))/tanh(deltax/2));
+end
+y = zeros(ny,1);
+for i=1:ny
+    y(i) = 0.5*(1+tanh(deltay*((i-1)/(ny-1)-0.5))/tanh(deltay/2));
+end
+y = Ly_over_Lx*y;
 
 % Time step
 h2 = (x(2)-x(1))*(y(2)-y(1));       % minimum cell volume
@@ -206,7 +206,7 @@ for istep=1:nsteps
 
         subplot(244);
         quiver(x,y,u',v');
-        axis('square', [0 1 0 1]);
+        axis('square', [0 1 0 Ly_over_Lx]);
         title('velocity vectors'); xlabel('x'); ylabel('y');
     
         pause(0.001);
@@ -242,7 +242,7 @@ title('stream lines'); xlabel('x'); ylabel('y');
 
 subplot(236);
 quiver(x,y,u',v');
-axis([0 1 0 1], 'square');
+axis([0 1 0 Ly_over_Lx], 'square');
 title('stream lines'); xlabel('x'); ylabel('y');
 
 % ------------------------------------------------------------------- %

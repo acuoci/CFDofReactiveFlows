@@ -33,7 +33,8 @@
 %                                                                         %
 %-------------------------------------------------------------------------%
 %                                                                         %
-%  Code: 2D driven-cavity problem on a staggered grid                     %
+%  Code: 2D driven-cavity problem on a staggered grid with inclusion of   %
+%        inlet and outlet sections                                        %
 %        The code is adapted and extended from Tryggvason, Computational  %
 %        Fluid Dynamics http://www.nd.edu/~gtryggva/CFD-Course/           %
 %                                                                         %
@@ -53,15 +54,24 @@ nu=1e-2;    % kinematic viscosity [m2/s] (if L=1 and un=1, then Re=1/nu)
 tau=20;     % total time of simulation [s]
 
 % Boundary conditions
-un=1;       % north wall velocity [m/s]
+un=2;       % north wall velocity [m/s]
 us=0;       % south wall velocity [m/s]
 ve=0;       % east wall velocity [m/s]
 vw=0;       % west wall velocity [m/s]
+uin=1;      % [INOUT] inlet velocity on the west side [m/s]
 
 % Parameters for SOR
 max_iterations=10000;   % maximum number of iterations
 beta=1.5;               % SOR coefficient
 max_error=1e-4;         % error for convergence
+
+% [INOUT] Inlet section (west side)
+nin_start = 1/2*(ny+2);         % first cell index 
+nin_end = 3/4*(ny+2)+1;           % last cell index
+
+% [INOUT] Outlet section (east side)
+nout_start = 1/4*(ny+2);        % first cell index 
+nout_end = 1/2*(ny+2)+1;          % last cell index
 
 % ----------------------------------------------------------------------- %
 % Data processing
@@ -73,13 +83,21 @@ end
 % Process the grid
 h=L/nx;                           % grid step (uniform grid) [m]
 
+% [INOUT] Inlet/Outlet section areas
+Ain = h*(nin_end-nin_start+1);      % inlet section area [m]
+Aout = h*(nout_end-nout_start+1);   % outlet section area [m]
+
+% [INOUT] Estimated max velocity
+umax=max([abs(un),abs(us),abs(ve),abs(vw),...
+            uin,uin*Ain/Aout]);     % maximum velocity [m/s]
+
 % Time step
-sigma = 0.5;                        % safety factor for time step (stability)
+sigma = 0.50;                       % safety factor for time step (stability)
 dt_diff=h^2/4/nu;                   % time step (diffusion stability) [s]
-dt_conv=4*nu/un^2;                  % time step (convection stability) [s]
+dt_conv=4*nu/umax^2;                % time step (convection stability) [s]
 dt=sigma*min(dt_diff, dt_conv);     % time step (stability) [s]
 nsteps=tau/dt;                      % number of steps
-Re = un*L/nu;                       % Reynolds' number
+Re = umax*L/nu;                       % Reynolds' number
 
 fprintf('Time step: %f\n', dt);
 fprintf(' - Diffusion:  %f\n', dt_diff);
@@ -114,6 +132,15 @@ gamma=zeros(nx+2,ny+2)+1/4;
 gamma(2,3:ny)=1/3;gamma(nx+1,3:ny)=1/3;gamma(3:nx,2)=1/3;gamma(3:nx,ny+1)=1/3;
 gamma(2,2)=1/2;gamma(2,ny+1)=1/2;gamma(nx+1,2)=1/2;gamma(nx+1,ny+1)=1/2;
 
+% [INOUT] Correction of gamma coefficients for taking into account out sections
+gamma(nx+1,nout_start:nout_end) = 1/4;
+
+% [INOUT] Initial conditions
+u(1,nin_start:nin_end) = uin;               % inlet section: fixed velocity [m/s]
+u(nx+1,nout_start:nout_end) = uin;          % outlet section: fixed velocity [m/s]
+u(2:nx,2:ny+1) = uin;                       % internal points: fixed velocity [m/s]
+ut = u;                                     % temporary velocity [m/s]
+
 % ----------------------------------------------------------------------- %
 % Solution over time
 % ----------------------------------------------------------------------- %
@@ -126,8 +153,20 @@ for is=1:nsteps
     v(1,1:ny+1)=2*vw-v(2,1:ny+1);               % west wall
     v(nx+2,1:ny+1)=2*ve-v(nx+1,1:ny+1);         % east wall
     
+    % [INOUT] Over-writing inlet conditions    
+    u(1,nin_start:nin_end) = uin;               % fixed velocity [m/s]
+    
+    % [INOUT] Over-writing outlet conditions
+    u(nx+1,nout_start:nout_end) = u(nx,nout_start:nout_end);    % zero-gradient     
+    v(nx+2,nout_start:nout_end) = v(nx+1,nout_start:nout_end);  % zero-gradient    
+    
     % Advection-diffusion equation (predictor)
     [ut, vt] = AdvectionDiffusion2D( ut, vt, u, v, nx, ny, h, dt, nu);
+    
+    % [INOUT] Update boundary conditions for temporary velocity
+    ut(1,nin_start:nin_end) = u(1,nin_start:nin_end);            % fixed velocity [m/s]
+    ut(nx+1,nout_start:nout_end) = u(nx+1,nout_start:nout_end);  % zero-gradient
+    vt(nx+2,nout_start:nout_end) = v(nx+2,nout_start:nout_end);  % zero-gradient 
     
     % Pressure equation (Poisson)
     [p, iter] = Poisson2D( p, ut, vt, gamma, nx, ny, h, dt, ...
@@ -137,9 +176,24 @@ for is=1:nsteps
     u(2:nx,2:ny+1)=ut(2:nx,2:ny+1)-(dt/h)*(p(3:nx+1,2:ny+1)-p(2:nx,2:ny+1));
     v(2:nx+1,2:ny)=vt(2:nx+1,2:ny)-(dt/h)*(p(2:nx+1,3:ny+1)-p(2:nx+1,2:ny));
     
+    % [INOUT] Correction on outlet to ensure conservation of mass
+    u(nx+1,nout_start:nout_end)=ut(nx+1,nout_start:nout_end) - ...
+                                (dt/h)*(p(nx+2,nout_start:nout_end)-p(nx+1,nout_start:nout_end));
+    
+    % [INOUT] Because of numerical errors in the solution of the equations,
+    %         the overall continuity equation, i.e. the conservation of
+    %         mass cannot be guaranteed. It is better to correct the outlet
+    %         velocity in order to force conservation of mass
+    Qin = mean(u(1,nin_start:nin_end))*Ain;         % inlet flow rate [m2/s]
+    Qout = mean(u(nx+1,nout_start:nout_end))*Aout;  % outlet flow rate [m2/s]    
+    if (abs(Qout)>1.e-6)
+        u(nx+1,nout_start:nout_end) = u(nx+1,nout_start:nout_end)*abs(Qin/Qout);
+    end
+    
     % Print on the screen
     if (mod(is,50)==1)
-        fprintf('Step: %d - Time: %f - Poisson iterations: %d\n', is, t, iter);
+        fprintf( 'Step: %d - Time: %f - Poisson iterations: %d - dQ: %f%%\n', ...
+                 is, t, iter, (Qout-Qin)/Qin*100. );
     end
     
     % Advance in time
@@ -174,8 +228,8 @@ axis('square'); title('v'); xlabel('x'); ylabel('y');
 
 % Streamlines
 subplot(233);
-sx = 0:2*h:L;
 sy = 0:2*h:L;
+sx = L*0.01*ones(length(sy),1);
 streamline(X,Y,uu',vv',sx,sy)
 axis([0 L 0 L], 'square');
 title('streamlines'); xlabel('x'); ylabel('y');
@@ -205,51 +259,6 @@ axis('square');
 xlabel('y [m]');ylabel('velocity [m/s]'); title('velocity along y-axis');
 legend('x-velocity', 'y-velocity');
 hold off;
-    
-% ------------------------------------------------------------------- %
-% Write velocity profiles along the centerlines for exp comparison
-% ------------------------------------------------------------------- %
-u_profile = uu(nx/2+1,:);
-p_vertical_profile = pp(nx/2+1,:);
-fileVertical = fopen('experimental_data/vertical.out','w');
-for i=1:ny+1 
-    fprintf(fileVertical,'%f %f %f\n', y(i), u_profile(i), p_vertical_profile(i) );
-end
-fclose(fileVertical);
-
-v_profile = vv(:,ny/2+1);
-p_horizontal_profile = pp(:,ny/2+1);
-fileHorizontal = fopen('experimental_data/horizontal.out','w');
-for i=1:nx+1
-    fprintf(fileHorizontal,'%f %f %f\n',x(i), v_profile(i), p_horizontal_profile(i) );
-end
-fclose(fileHorizontal);
-
-
-% ------------------------------------------------------------------- %
-% Compare with exp data (available only for Re=100, 400, and 1000)
-% ------------------------------------------------------------------- %
-% Read experimental data from file
-exp_u_along_y = dlmread('experimental_data/u_along_y.exp', '', 1, 0);
-exp_v_along_x = dlmread('experimental_data/v_along_x.exp', '', 1, 0);
-
-% Comparison with exp data
-% Be careful: cols 1,2 for Re=100, 3,4 for Re=400, 5,6 for Re=1000
-figure;
-plot(exp_u_along_y(:,1), exp_u_along_y(:,2), 'o', y, u_profile, '-');
-axis('square'); title('u along y (centerline)'); xlabel('y'); ylabel('u'); xlim([0 L]);
-
-figure;
-plot(exp_v_along_x(:,1), exp_v_along_x(:,2), 'o', x, v_profile, '-');
-axis('square'); title('v along x (centerline)'); xlabel('x'); ylabel('v'); xlim([0 L]);
-
-figure;
-plot(y(2:ny), p_vertical_profile(2:ny), '-');
-axis('square'); title('p along y (centerline)'); xlabel('y'); ylabel('p'); xlim([0 L]);
-
-figure;
-plot(x(2:nx), p_horizontal_profile(2:nx), '-');
-axis('square'); title('p along x (centerline)'); xlabel('x'); ylabel('p'); xlim([0 L]);
 
 
 % --------------------------------------------------------------------------------------
@@ -262,11 +271,9 @@ function [p, iter] = Poisson2D( p, ut, vt, gamma, nx, ny, h, dt, ...
         
         for i=2:nx+1
             for j=2:ny+1
-                
-                delta = p(i+1,j)+p(i-1,j)+p(i,j+1)+p(i,j-1);
-                S = (h/dt)*(ut(i,j)-ut(i-1,j)+vt(i,j)-vt(i,j-1));
-                p(i,j)=beta*gamma(i,j)*( delta-S )+(1-beta)*p(i,j);
-                
+                    delta = p(i+1,j)+p(i-1,j)+p(i,j+1)+p(i,j-1);
+                    S = (h/dt)*(ut(i,j)-ut(i-1,j)+vt(i,j)-vt(i,j-1));
+                    p(i,j)=beta*gamma(i,j)*( delta-S )+(1-beta)*p(i,j);
             end
         end
         
