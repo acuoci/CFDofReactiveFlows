@@ -33,7 +33,8 @@
 %                                                                         %
 %-------------------------------------------------------------------------%
 %                                                                         %
-%  Code: 2D driven-cavity problem on a staggered grid                     %
+%  Code: 2D driven-cavity problem based on a staggered grid               %
+%        with inclusion of a passive scalar equation                      %
 %        The code is adapted and extended from Tryggvason, Computational  %
 %        Fluid Dynamics http://www.nd.edu/~gtryggva/CFD-Course/           %
 %                                                                         %
@@ -46,22 +47,30 @@ clear variables;
 % ----------------------------------------------------------------------- %
 
 % Only even numbers of cells are acceptable
-nx=50;      % number of (physical) cells along x
-ny=nx;      % number of (physical) cells along y
-L=1;        % length [m]
-nu=1e-2;    % kinematic viscosity [m2/s] (if L=1 and un=1, then Re=1/nu)
-tau=20;     % total time of simulation [s]
+nx=16;              % number of (physical) cells along x
+ny=nx;              % number of (physical) cells along y
+L=1;                % length [m]
+nu=0.01;            % kinematic viscosity [m2/s] 
+tau=20;             % total time of simulation [s]
+alpha=0.01;         % diffusion coefficient passive scalar [m2/s]
+phi0=0;             % initial value of passive scalar
 
-% Boundary conditions
+% Boundary conditions (velocities)
 un=1;       % north wall velocity [m/s]
 us=0;       % south wall velocity [m/s]
 ve=0;       % east wall velocity [m/s]
 vw=0;       % west wall velocity [m/s]
 
+% Boundary conditions for passive scalar
+phin=0;       % north wall temperature
+phis=1;       % south wall temperature
+phie=0;       % east wall temperature
+phiw=0;       % west wall temperature
+
 % Parameters for SOR
 max_iterations=10000;   % maximum number of iterations
 beta=1.5;               % SOR coefficient
-max_error=1e-4;         % error for convergence
+max_error=1e-3;         % error for convergence
 
 % ----------------------------------------------------------------------- %
 % Data processing
@@ -70,14 +79,15 @@ if (mod(nx,2)~=0 || mod(ny,2)~=0)
     error('Only even number of cells can be accepted (for graphical purposes only)');
 end
 
-% Process the grid
-h=L/nx;                           % grid step (uniform grid) [m]
+% Grid step
+h=L/nx;             % grid step [m]
 
 % Time step
 sigma = 0.5;                        % safety factor for time step (stability)
-dt_diff=h^2/4/nu;                   % time step (diffusion stability) [s]
-dt_conv=4*nu/un^2;                  % time step (convection stability) [s]
-dt=sigma*min(dt_diff, dt_conv);     % time step (stability) [s]
+u2=(un^2+us^2+ve^2+vw^2);           % velocity measure [m2/s2]
+dt_diff=h^2/4/nu;                   % time step (diffusion stability)
+dt_conv=4*nu/u2;                    % time step (convection stability)
+dt=sigma*min(dt_diff, dt_conv);     % time step (stability)
 nsteps=tau/dt;                      % number of steps
 Re = un*L/nu;                       % Reynolds' number
 
@@ -99,6 +109,7 @@ y=0:h:L;                         % grid coordinates (y axis)
 u=zeros(nx+1,ny+2);
 v=zeros(nx+2,ny+1);
 p=zeros(nx+2,ny+2);
+phi=zeros(nx+2,ny+2)+phi0;
 
 % Temporary velocity fields
 ut=zeros(nx+1,ny+2);
@@ -107,12 +118,13 @@ vt=zeros(nx+2,ny+1);
 % Fields used only for graphical post-processing purposes
 uu=zeros(nx+1,ny+1);
 vv=zeros(nx+1,ny+1);
-pp=zeros(nx+1,ny+1);
+phiphi=zeros(nx+1,ny+1);
+omega=zeros(nx+1,ny+1);
 
 % Coefficient for pressure equation
-gamma=zeros(nx+2,ny+2)+1/4;
-gamma(2,3:ny)=1/3;gamma(nx+1,3:ny)=1/3;gamma(3:nx,2)=1/3;gamma(3:nx,ny+1)=1/3;
-gamma(2,2)=1/2;gamma(2,ny+1)=1/2;gamma(nx+1,2)=1/2;gamma(nx+1,ny+1)=1/2;
+c=zeros(nx+2,ny+2)+1/4;
+c(2,3:ny)=1/3;c(nx+1,3:ny)=1/3;c(3:nx,2)=1/3;c(3:nx,ny+1)=1/3;
+c(2,2)=1/2;c(2,ny+1)=1/2;c(nx+1,2)=1/2;c(nx+1,ny+1)=1/2;
 
 % ----------------------------------------------------------------------- %
 % Solution over time
@@ -120,136 +132,103 @@ gamma(2,2)=1/2;gamma(2,ny+1)=1/2;gamma(nx+1,2)=1/2;gamma(nx+1,ny+1)=1/2;
 t=0.0;
 for is=1:nsteps
     
-    % Boundary conditions
-    u(1:nx+1,1)=2*us-u(1:nx+1,2);               % south wall
-    u(1:nx+1,ny+2)=2*un-u(1:nx+1,ny+1);         % north wall
-    v(1,1:ny+1)=2*vw-v(2,1:ny+1);               % west wall
-    v(nx+2,1:ny+1)=2*ve-v(nx+1,1:ny+1);         % east wall
+    % Boundary conditions (velocity)
+    u(1:nx+1,1)=2*us-u(1:nx+1,2);
+    u(1:nx+1,ny+2)=2*un-u(1:nx+1,ny+1);
+    v(1,1:ny+1)=2*vw-v(2,1:ny+1);
+    v(nx+2,1:ny+1)=2*ve-v(nx+1,1:ny+1);
     
     % Advection-diffusion equation (predictor)
     [ut, vt] = AdvectionDiffusion2D( ut, vt, u, v, nx, ny, h, dt, nu);
     
     % Pressure equation (Poisson)
-    [p, iter] = Poisson2D( p, ut, vt, gamma, nx, ny, h, dt, ...
-                           beta, max_iterations, max_error );
+    [p, iter] = Poisson2D( p, ut, vt, c, nx, ny, h, dt, ...
+                           beta, max_iterations, max_error);
     
-    % Correction on the velocity
+    % Correct the velocity
     u(2:nx,2:ny+1)=ut(2:nx,2:ny+1)-(dt/h)*(p(3:nx+1,2:ny+1)-p(2:nx,2:ny+1));
     v(2:nx+1,2:ny)=vt(2:nx+1,2:ny)-(dt/h)*(p(2:nx+1,3:ny+1)-p(2:nx+1,2:ny));
     
-    % Print on the screen
+    % Print time step on the screen
     if (mod(is,50)==1)
         fprintf('Step: %d - Time: %f - Poisson iterations: %d\n', is, t, iter);
     end
     
-    % Advance in time
+    % ----------------------------------------------------------------------- %
+    % Passive scalar advection-diffusion equation
+    % ----------------------------------------------------------------------- %
+
+    % Boundary conditions (temperature)
+    phi(2:nx+1,1)=2*phis-phi(2:nx+1,2);
+    phi(2:nx+1,ny+2)=2*phin-phi(2:nx+1,ny+1);
+    phi(1,2:ny+1)=2*phiw-phi(2,2:ny+1);
+    phi(nx+2,2:ny+1)=2*phie-phi(nx+1,2:ny+1);
+
+    % Update passive scalar solution
+    phi = AdvectionDiffusion2DPassiveScalar( phi, u, v, nx, ny, h, dt, alpha );
+    
+  
+    % Advance time
     t=t+dt;
  
-end
+    % ----------------------------------------------------------------------- %
+    % Update graphical output
+    % ----------------------------------------------------------------------- %
+    if (mod(is,50)==1)
+        
+        % Post-processing (reconstructi on the corners of pressure cells)
+        uu(1:nx+1,1:ny+1)=0.5*(u(1:nx+1,2:ny+2)+u(1:nx+1,1:ny+1));
+        vv(1:nx+1,1:ny+1)=0.5*(v(2:nx+2,1:ny+1)+v(1:nx+1,1:ny+1));
+        phiphi(1:nx+1,1:ny+1)=0.25*(phi(1:nx+1,1:ny+1)+phi(2:nx+2,1:ny+1) + ...
+                                    phi(1:nx+1,2:ny+2)+phi(2:nx+2,2:ny+2));
+        omega(1:nx+1,1:ny+1)=(  u(1:nx+1,2:ny+2)-u(1:nx+1,1:ny+1)-...
+                                v(2:nx+2,1:ny+1)+v(1:nx+1,1:ny+1) )/(2*h);
+           
+        % Contour: vorticity
+        subplot(231);
+        contour(X,Y,omega',20);
+        axis('square'); xlabel('x [m]');ylabel('y [m]'); title('vorticity contour');
 
-% ----------------------------------------------------------------------- %
-% Final post-processing                                                   %
-% ----------------------------------------------------------------------- %
+        % Contour: x-velocity
+        subplot(232);
+        contour(X,Y,uu');
+        axis('square'); xlabel('x [m]');ylabel('y [m]'); title('x-velocity contour');
 
-% Field reconstruction
-uu(1:nx+1,1:ny+1)=0.50*(u(1:nx+1,2:ny+2)+u(1:nx+1,1:ny+1));
-vv(1:nx+1,1:ny+1)=0.50*(v(2:nx+2,1:ny+1)+v(1:nx+1,1:ny+1));
-pp(1:nx+1,1:ny+1)=0.25*(p(1:nx+1,1:ny+1)+p(1:nx+1,2:ny+2)+...
-                        p(2:nx+2,1:ny+1)+p(2:nx+2,2:ny+2));
+        % Contour: y-velocity
+        subplot(233);
+        contour(X,Y,vv');
+        axis('square'); xlabel('x [m]');ylabel('y [m]'); title('y-velocity contour');
 
-% Surface map: u-velocity
-subplot(231);
-surface(X,Y,uu');
-axis('square'); title('u'); xlabel('x'); ylabel('y');
+        % Plot: velocity components along the horizontal middle axis
+        subplot(234);
+        plot(x,uu(:, round(ny/2)));
+        hold on;
+        plot(x,vv(:, round(ny/2)));
+        axis('square');
+        xlabel('x [m]');ylabel('velocity [m/s]'); title('velocity along x-axis');
+        legend('x-velocity', 'y-velocity');
+        hold off;
 
-% Surface map: v-velocity
-subplot(234);
-surface(X,Y,vv');
-axis('square'); title('v'); xlabel('x'); ylabel('y');
+        % Contour: passive scalar
+        subplot(235);
+        contour(X,Y,phiphi');
+        axis('square'); xlabel('x [m]');ylabel('y [m]'); title('passive scalar contour');
 
-% Surface map: pressure
-% subplot(232);
-% surface(X,Y,pp');
-% axis('square'); title('pressure'); xlabel('x'); ylabel('y');
+        % Plot: velocity components along the horizontal middle axis
+        subplot(236);
+        plot(x,phiphi(:, round(ny/2)));
+        hold on;
+        plot(y,phiphi(round(ny/2),:));
+        axis('square');
+        xlabel('x or y [m]');ylabel('passive scalar'); title('passive scalar (centerlines)');
+        legend('along x', 'along y'); ylim([min([phin,phis,phie,phiw]), max([phin,phis,phie,phiw])]);
+        hold off;
 
-% Streamlines
-subplot(233);
-sx = 0:2*h:1;
-sy = 0:2*h:1;
-streamline(X,Y,uu',vv',sx,sy)
-axis([0 1 0 1], 'square');
-title('streamlines'); xlabel('x'); ylabel('y');
-
-% Surface map: velocity vectors
-subplot(236);
-quiver(X,Y,uu',vv');
-axis([0 1 0 1], 'square');
-title('velocity vector field'); xlabel('x'); ylabel('y');
-
-% Plot: velocity components along the horizontal middle axis
-subplot(232);
-plot(x,uu(:, round(ny/2)+1));
-hold on;
-plot(x,vv(:, round(ny/2)+1));
-axis('square');
-xlabel('x [m]');ylabel('velocity [m/s]'); title('velocity along x-axis');
-legend('x-velocity', 'y-velocity');
-hold off;
-
-% Plot: velocity components along the horizontal middle axis
-subplot(235);
-plot(y,uu(round(nx/2)+1,:));
-hold on;
-plot(y,vv(round(nx/2)+1,:));
-axis('square');
-xlabel('y [m]');ylabel('velocity [m/s]'); title('velocity along y-axis');
-legend('x-velocity', 'y-velocity');
-hold off;
+        pause(0.001)
     
-% ------------------------------------------------------------------- %
-% Write velocity profiles along the centerlines for exp comparison
-% ------------------------------------------------------------------- %
-u_profile = uu(nx/2+1,:);
-p_vertical_profile = pp(nx/2+1,:);
-fileVertical = fopen('experimental_data/vertical.out','w');
-for i=1:ny+1 
-    fprintf(fileVertical,'%f %f %f\n', y(i), u_profile(i), p_vertical_profile(i) );
+    end
+    
 end
-fclose(fileVertical);
-
-v_profile = vv(:,ny/2+1);
-p_horizontal_profile = pp(:,ny/2+1);
-fileHorizontal = fopen('experimental_data/horizontal.out','w');
-for i=1:nx+1
-    fprintf(fileHorizontal,'%f %f %f\n',x(i), v_profile(i), p_horizontal_profile(i) );
-end
-fclose(fileHorizontal);
-
-
-% ------------------------------------------------------------------- %
-% Compare with exp data (available only for Re=100, 400, and 1000)
-% ------------------------------------------------------------------- %
-% Read experimental data from file
-exp_u_along_y = dlmread('experimental_data/u_along_y.exp', '', 1, 0);
-exp_v_along_x = dlmread('experimental_data/v_along_x.exp', '', 1, 0);
-
-% Comparison with exp data
-% Be careful: cols 1,2 for Re=100, 3,4 for Re=400, 5,6 for Re=1000
-figure;
-plot(exp_u_along_y(:,1), exp_u_along_y(:,2), 'o', y, u_profile, '-');
-axis('square'); title('u along y (centerline)'); xlabel('y'); ylabel('u'); xlim([0 L]);
-
-figure;
-plot(exp_v_along_x(:,1), exp_v_along_x(:,2), 'o', x, v_profile, '-');
-axis('square'); title('v along x (centerline)'); xlabel('x'); ylabel('v'); xlim([0 L]);
-
-figure;
-plot(y(2:ny), p_vertical_profile(2:ny), '-');
-axis('square'); title('p along y (centerline)'); xlabel('y'); ylabel('p'); xlim([0 L]);
-
-figure;
-plot(x(2:nx), p_horizontal_profile(2:nx), '-');
-axis('square'); title('p along x (centerline)'); xlabel('x'); ylabel('p'); xlim([0 L]);
 
 
 % --------------------------------------------------------------------------------------
@@ -328,4 +307,27 @@ function [ut, vt] = AdvectionDiffusion2D( ut, vt, u, v, nx, ny, h, dt, nu)
         end
     end
     
+end
+
+% --------------------------------------------------------------------------------------
+% Advection-diffusion equation for passive scalar
+% --------------------------------------------------------------------------------------
+function [phi] = AdvectionDiffusion2DPassiveScalar( phi, u, v, nx, ny, h, dt, alpha )
+    
+    phio = phi;
+    for i=2:nx+1
+            for j=2:ny+1
+                
+                uij = 0.5*(u(i,j)+u(i-1,j));
+                vij = 0.5*(v(i,j)+v(i,j-1));
+                
+                phi(i,j)= phio(i,j) + dt *( ...
+                            (-uij/2/h+alpha/h^2)*phio(i+1,j) + ...
+                            ( uij/2/h+alpha/h^2)*phio(i-1,j) + ...
+                            (-vij/2/h+alpha/h^2)*phio(i,j+1) + ...
+                            ( vij/2/h+alpha/h^2)*phio(i,j-1) + ...
+                            (-4*alpha/h^2)*phio(i,j) );
+            end
+    end
+
 end
