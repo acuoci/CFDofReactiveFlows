@@ -26,4 +26,8 @@ The Navier-Stokes equations for an incompressible fluid are solved on a 2D recta
 ## 5. Navier-Stokes equations in 2D: staggered grid and projection algorithm
 The Navier-Stokes equations for an incompressible fluid are solved on a 2D rectangular domain meshed with a staggered grid. The momentum equations are solved using the forward Euler method and 2nd order, centered spatial discretizations. The projection algorithm is adopted for managing the coupling between pressure and velocity. In particular, the corresponding Poisson equation for pressure is solved using the Successive Over-Relaxation method and 2nd order, centered discretization for the spatial derivatives. 
 * Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered.m](codes/driven_cavity/driven_cavity_2d_staggered.m)
+* C++ code (square domain, uniform grid): [driven_cavity_2d_staggered.cpp](codes/driven_cavity/driven_cavity_2d_staggered.cpp)
 * Matlab script (rectangular domain, non-uniform grid): [driven_cavity_2d_staggered_nonuniform.m](codes/driven_cavity/driven_cavity_2d_staggered_nonuniform.m)
+
+#### Extensions/Modifications
+* Addition of a passive scalar equation governed by the usual advection-diffusion equation without source terms. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_passivescalar.m](codes/driven_cavity/driven_cavity_2d_staggered_passivescalar.m)
