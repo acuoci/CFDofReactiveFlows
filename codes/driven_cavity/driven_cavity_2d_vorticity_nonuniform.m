@@ -68,7 +68,7 @@ Uwall=nu*Re/L;           % wall velocity [m/s]
  
 % Parameters for SOR
 max_iterations=10000;   % maximum number of iterations
-beta=1.9;               % SOR coefficient
+beta=1.5;               % SOR coefficient
 max_error=0.0001;       % error for convergence
 
 % Time step
