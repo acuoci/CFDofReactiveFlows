@@ -1,4 +1,4 @@
-# Matlab4CFDofRF
+# CFDofReactiveFlows
 Collection of codes in Matlab(R) and C++ for solving basic problems presented and discussed in the "Computational Fluid Dynamics of Reactive Flows" course (Politecnico di Milano)
 
 ## 1. Advection-diffusion equation in 1D
