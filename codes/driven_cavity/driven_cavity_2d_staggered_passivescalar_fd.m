@@ -34,7 +34,10 @@
 %-------------------------------------------------------------------------%
 %                                                                         %
 %  Code: 2D driven-cavity problem based on a staggered grid               %
-%        with inclusion of a passive scalar equation                      %
+%        with inclusion of a passive scalar equation (FD)                 %
+%        Here the passive scalar equation is solved using the Finite      %
+%        Difference Method (while momentum equations are solved using     %
+%        the Finite Volume Method)                                        %
 %        The code is adapted and extended from Tryggvason, Computational  %
 %        Fluid Dynamics http://www.nd.edu/~gtryggva/CFD-Course/           %
 %                                                                         %
@@ -62,10 +65,10 @@ ve=0;       % east wall velocity [m/s]
 vw=0;       % west wall velocity [m/s]
 
 % Boundary conditions for passive scalar
-phin=0;       % north wall temperature
-phis=1;       % south wall temperature
-phie=0;       % east wall temperature
-phiw=0;       % west wall temperature
+phin=0;       % north wall passive scalar
+phis=1;       % south wall passive scalar
+phie=0;       % east wall passive scalar
+phiw=0;       % west wall passive scalar
 
 % Parameters for SOR
 max_iterations=10000;   % maximum number of iterations
@@ -109,7 +112,7 @@ y=0:h:L;                         % grid coordinates (y axis)
 u=zeros(nx+1,ny+2);
 v=zeros(nx+2,ny+1);
 p=zeros(nx+2,ny+2);
-phi=zeros(nx+2,ny+2)+phi0;
+phi=zeros(nx+1,ny+1)+phi0;
 
 % Temporary velocity fields
 ut=zeros(nx+1,ny+2);
@@ -118,7 +121,6 @@ vt=zeros(nx+2,ny+1);
 % Fields used only for graphical post-processing purposes
 uu=zeros(nx+1,ny+1);
 vv=zeros(nx+1,ny+1);
-phiphi=zeros(nx+1,ny+1);
 omega=zeros(nx+1,ny+1);
 
 % Coefficient for pressure equation
@@ -158,11 +160,11 @@ for is=1:nsteps
     % Passive scalar advection-diffusion equation
     % ----------------------------------------------------------------------- %
 
-    % Boundary conditions (temperature)
-    phi(2:nx+1,1)=2*phis-phi(2:nx+1,2);
-    phi(2:nx+1,ny+2)=2*phin-phi(2:nx+1,ny+1);
-    phi(1,2:ny+1)=2*phiw-phi(2,2:ny+1);
-    phi(nx+2,2:ny+1)=2*phie-phi(nx+1,2:ny+1);
+    % Boundary conditions (passive scalar)
+    phi(1:nx+1,1)=phis;
+    phi(1:nx+1,ny+1)=phin;
+    phi(1,1:ny+1)=phiw;
+    phi(nx+1,1:ny+1)=phie;
 
     % Update passive scalar solution
     phi = AdvectionDiffusion2DPassiveScalar( phi, u, v, nx, ny, h, dt, alpha );
@@ -179,8 +181,6 @@ for is=1:nsteps
         % Post-processing (reconstructi on the corners of pressure cells)
         uu(1:nx+1,1:ny+1)=0.5*(u(1:nx+1,2:ny+2)+u(1:nx+1,1:ny+1));
         vv(1:nx+1,1:ny+1)=0.5*(v(2:nx+2,1:ny+1)+v(1:nx+1,1:ny+1));
-        phiphi(1:nx+1,1:ny+1)=0.25*(phi(1:nx+1,1:ny+1)+phi(2:nx+2,1:ny+1) + ...
-                                    phi(1:nx+1,2:ny+2)+phi(2:nx+2,2:ny+2));
         omega(1:nx+1,1:ny+1)=(  u(1:nx+1,2:ny+2)-u(1:nx+1,1:ny+1)-...
                                 v(2:nx+2,1:ny+1)+v(1:nx+1,1:ny+1) )/(2*h);
            
@@ -211,14 +211,14 @@ for is=1:nsteps
 
         % Contour: passive scalar
         subplot(235);
-        contour(X,Y,phiphi');
+        contour(X,Y,phi');
         axis('square'); xlabel('x [m]');ylabel('y [m]'); title('passive scalar contour');
 
         % Plot: velocity components along the horizontal middle axis
         subplot(236);
-        plot(x,phiphi(:, round(ny/2)));
+        plot(x,phi(:, round(ny/2)));
         hold on;
-        plot(y,phiphi(round(ny/2),:));
+        plot(y,phi(round(ny/2),:));
         axis('square');
         xlabel('x or y [m]');ylabel('passive scalar'); title('passive scalar (centerlines)');
         legend('along x', 'along y'); ylim([min([phin,phis,phie,phiw]), max([phin,phis,phie,phiw])]);
@@ -315,18 +315,25 @@ end
 function [phi] = AdvectionDiffusion2DPassiveScalar( phi, u, v, nx, ny, h, dt, alpha )
     
     phio = phi;
-    for i=2:nx+1
-            for j=2:ny+1
+    for i=2:nx
+            for j=2:ny
                 
-                uij = 0.5*(u(i,j)+u(i-1,j));
-                vij = 0.5*(v(i,j)+v(i,j-1));
+                % Interpolation of velocity on the FD grid point
+                uij = 0.50*(u(i,j+1)+u(i,j));
+                vij = 0.50*(v(i+1,j)+v(i,j));
                 
-                phi(i,j)= phio(i,j) + dt *( ...
-                            (-uij/2/h+alpha/h^2)*phio(i+1,j) + ...
-                            ( uij/2/h+alpha/h^2)*phio(i-1,j) + ...
-                            (-vij/2/h+alpha/h^2)*phio(i,j+1) + ...
-                            ( vij/2/h+alpha/h^2)*phio(i,j-1) + ...
-                            (-4*alpha/h^2)*phio(i,j) );
+                % Convection contribution (2nd order centered derivatives)
+                convection = -uij*(phio(i+1,j)-phio(i-1,j))/2/h ...
+                             -vij*(phio(i,j+1)-phio(i,j-1))/2/h ;
+                 
+                % Diffusion contribution (2nd order centered)
+                diffusion = alpha* (...
+                            (phio(i+1,j)-2*phio(i,j)+phio(i-1,j))/h^2 + ...
+                            (phio(i,j+1)-2*phio(i,j)+phio(i,j-1))/h^2 ) ;
+                
+                % Euler Method
+                phi(i,j)= phio(i,j) + dt *( convection + diffusion);
+                
             end
     end
 
