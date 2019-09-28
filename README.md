@@ -30,6 +30,6 @@ The Navier-Stokes equations for an incompressible fluid are solved on a 2D recta
 * Matlab script (rectangular domain, non-uniform grid): [driven_cavity_2d_staggered_nonuniform.m](codes/driven_cavity/driven_cavity_2d_staggered_nonuniform.m)
 
 #### Extensions/Modifications
-* Addition of a passive scalar equation governed by the usual advection-diffusion equation without source terms. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_passivescalar.m](codes/driven_cavity/driven_cavity_2d_staggered_passivescalar.m)
+* Addition of a passive scalar equation governed by the usual advection-diffusion equation without source terms. Passive scalar equation solved with the Finite Volume (FV) or Finite Difference (FD) methods. Matlab script (square domain, uniform grid, FV): [driven_cavity_2d_staggered_passivescalar_fv.m](codes/driven_cavity/driven_cavity_2d_staggered_passivescalar_fv.m). Matlab script (square domain, uniform grid, FD): [driven_cavity_2d_staggered_passivescalar_fd.m](codes/driven_cavity/driven_cavity_2d_staggered_passivescalar_fd.m). 
 * Addition of inflow and outflow boundaries along the west and east sides, respectively. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_inout.m](codes/driven_cavity/driven_cavity_2d_staggered_inout.m)
 * Addition of buoyancy term in the momentum equation via Boussinesq approximation, together with a temperature equation. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_buoyancy.m](codes/driven_cavity/driven_cavity_2d_staggered_buoyancy.m)
