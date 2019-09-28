@@ -279,6 +279,9 @@ function [ut, vt] = AdvectionDiffusion2D( ut, vt, u, v, nx, ny, h, dt, nu, ...
     for i=2:nx
         for j=2:ny+1 
             
+            % Temperature in the center of u-cell (linear interpolation)
+            Tij = 0.50*(T(i+1,j)+T(i,j));
+            
             ue2 = 0.25*( u(i+1,j)+u(i,j) )^2;
             uw2 = 0.25*( u(i,j)+u(i-1,j) )^2;
             unv = 0.25*( u(i,j+1)+u(i,j) )*( v(i+1,j)+v(i,j) );
@@ -288,7 +291,7 @@ function [ut, vt] = AdvectionDiffusion2D( ut, vt, u, v, nx, ny, h, dt, nu, ...
             D = (nu/h^2)*(u(i+1,j)+u(i-1,j)+u(i,j+1)+u(i,j-1)-4*u(i,j));
             
             ut(i,j)=u(i,j)+dt*(-A+D) ... 
-                    -dt*gx*Beta*(T(i,j)-T0);
+                    -dt*gx*Beta*(Tij-T0);
             
         end
     end
@@ -296,6 +299,9 @@ function [ut, vt] = AdvectionDiffusion2D( ut, vt, u, v, nx, ny, h, dt, nu, ...
     % Temporary v-velocity
     for i=2:nx+1
         for j=2:ny 
+            
+            % Temperature in the center of v-cell (linear interpolation)
+            Tij = 0.50*(T(i,j+1)+T(i,j));
             
             vn2 = 0.25*( v(i,j+1)+v(i,j) )^2;
             vs2 = 0.25*( v(i,j)+v(i,j-1) )^2;
@@ -305,7 +311,7 @@ function [ut, vt] = AdvectionDiffusion2D( ut, vt, u, v, nx, ny, h, dt, nu, ...
             D = (nu/h^2)*(v(i+1,j)+v(i-1,j)+v(i,j+1)+v(i,j-1)-4*v(i,j));
             
             vt(i,j)=v(i,j)+dt*(-A+D) ... 
-                    -dt*gy*Beta*(T(i,j)-T0);
+                    -dt*gy*Beta*(Tij-T0);
             
         end
     end
@@ -321,15 +327,33 @@ function [phi] = AdvectionDiffusion2DPassiveScalar( phi, u, v, nx, ny, h, dt, al
     for i=2:nx+1
             for j=2:ny+1
                 
-                uij = 0.5*(u(i,j)+u(i-1,j));
-                vij = 0.5*(v(i,j)+v(i,j-1));
+                % Velocity components on the cell faces
+                ue = u(i,j);
+                vn = v(i,j);
+                uw = u(i-1,j);
+                vs = v(i,j-1);
                 
-                phi(i,j)= phio(i,j) + dt *( ...
-                            (-uij/2/h+alpha/h^2)*phio(i+1,j) + ...
-                            ( uij/2/h+alpha/h^2)*phio(i-1,j) + ...
-                            (-vij/2/h+alpha/h^2)*phio(i,j+1) + ...
-                            ( vij/2/h+alpha/h^2)*phio(i,j-1) + ...
-                            (-4*alpha/h^2)*phio(i,j) );
+                % Passive scalar on the faces (linear interpolation)
+                phie = 0.50*(phio(i+1,j)+phio(i,j));
+                phiw = 0.50*(phio(i-1,j)+phio(i,j));
+                phin = 0.50*(phio(i,j+1)+phio(i,j));
+                phis = 0.50*(phio(i,j-1)+phio(i,j));
+                
+                % Gradients of passive scalar on the faces (centered)
+                dphi_dx_e = (phio(i+1,j)-phio(i,j))/h;
+                dphi_dx_w = (phio(i,j)-phio(i-1,j))/h;
+                dphi_dy_n = (phio(i,j+1)-phio(i,j))/h;
+                dphi_dy_s = (phio(i,j)-phio(i,j-1))/h;
+                
+                % Convection and diffusion contributions
+                convection = ue*phie*h - uw*phiw*h + ...
+                             vn*phin*h - vs*phis*h;
+                diffusion = alpha* ( dphi_dx_e*h -dphi_dx_w*h + ...
+                                     dphi_dy_n*h -dphi_dy_s*h );
+                 
+                % Euler method
+                phi(i,j)= phio(i,j) + dt/h^2 *( -convection + diffusion );
+                
             end
     end
 
