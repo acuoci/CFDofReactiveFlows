@@ -205,7 +205,7 @@ end
 % Write solution on file                                                  %
 % ----------------------------------------------------------------------- %
 indices = [nin_start nin_end nout_start nout_end];
-WriteSolution('solution.txt', L, nx, ny, u, v, p, indices);
+WriteSolution('solution.out', L, nx, ny, u, v, p, indices);
 
 % ----------------------------------------------------------------------- %
 % Final post-processing                                                   %
