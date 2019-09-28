@@ -202,6 +202,12 @@ for is=1:nsteps
 end
 
 % ----------------------------------------------------------------------- %
+% Write solution on file                                                  %
+% ----------------------------------------------------------------------- %
+indices = [nin_start nin_end nout_start nout_end];
+WriteSolution('solution.txt', L, nx, ny, u, v, p, indices);
+
+% ----------------------------------------------------------------------- %
 % Final post-processing                                                   %
 % ----------------------------------------------------------------------- %
 
@@ -334,5 +340,37 @@ function [ut, vt] = AdvectionDiffusion2D( ut, vt, u, v, nx, ny, h, dt, nu)
             
         end
     end
+    
+end
+
+% --------------------------------------------------------------------------------------
+% Write solution on a file
+% --------------------------------------------------------------------------------------
+function WriteSolution(name, L, nx, ny, u, v, p, indices)
+
+    fsol = fopen(name, 'w');
+
+    fprintf(fsol, '%f %d\n', L, nx);
+    
+    fprintf(fsol,   '%d %d %d %d \n', ...
+                    indices(1), indices(2), indices(3), indices(4));
+
+    for i=1:nx+1
+        for j=1:ny+2
+            fprintf(fsol, '%e\n', u(i,j));
+        end
+    end
+    for i=1:nx+2
+        for j=1:ny+1
+            fprintf(fsol, '%e\n', v(i,j));
+        end
+    end
+    for i=1:nx+2
+        for j=1:ny+2
+            fprintf(fsol, '%e\n', p(i,j));
+        end
+    end
+
+    fclose(fsol);
     
 end
