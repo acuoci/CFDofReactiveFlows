@@ -36,3 +36,7 @@ The Navier-Stokes equations for an incompressible fluid are solved on a 2D recta
 * Addition of **buoyancy** term in the momentum equation via Boussinesq approximation, together with a temperature equation. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_buoyancy.m](codes/driven_cavity/driven_cavity_2d_staggered_buoyancy.m)
 * Addition of **local residence time** equation. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_tau.m](codes/driven_cavity/driven_cavity_2d_staggered_tau.m)
 * Addition of automatic calculation of **Residence Time Distribution (RTD)** and Cumulative Distribution Function (CDF). Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_rtd.m](codes/driven_cavity/driven_cavity_2d_staggered_rtd.m)
+
+## 6. Navier-Stokes equations in 2D: examples
+### Taylor-Green vortex in 2D
+The Taylor-Green vortex is an exact closed form solution of 2D, incompressible Navier-Stokes equations. This 2D decaying vortex defined in the square domain, 0-2pi, serves as a benchmark problem for testing and validation of incompressible Navier-Stokes codes. The implementation here proposed is based on the Finite Volume Method (FV) applied on a staggered mesh and coupled with the Porjection Algorithm. Matlab script (square domain, uniform grid, FV): [taylor_green_vortex_2d.m](codes/ns_2d_examples/taylor_green_vortex_2d.m).
