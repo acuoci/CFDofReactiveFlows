@@ -38,8 +38,10 @@
 %  in space.                                                              %
 %                                                                         %
 %  Code: 1D steady-state advection-diffusion equation with finite volume  %
-%        method and implicit Euler method                                 %
-%        The solution of the tridiagonal system of linear equations       %
+%        method and implicit Euler method. The QUICK (QUadratic           %
+%        Upwind Interpolation for Convective Kinetics) discretization     %
+%        is adopted for the advective term.                               %
+%        The solution of the pentadiagonal system of linear equations     %
 %        is obtained by the standard solver available in MATLAB           %
 %                                                                         %
 %        d/dx(rho*u*phi) = gamma*d2phi/dx2                                %
@@ -62,7 +64,6 @@ phiL = 0;           % right value of phi
 
 % Numerical parameters
 nx = 20;            % number of points [-]
-adv_scheme = 'CD';  % advection scheme: CD, UPWIND, HYBRID, POWER-LAW
 
 % ----------------------------------------------------------------------- %
 % Data processing
@@ -74,63 +75,97 @@ xi=(h/2):h:(L-h/2);     % grid internal points
 fprintf('Peclet number: %f\n', Pe);
 
 % ----------------------------------------------------------------------- %
-% Preparing system matrix
+% Preparin the linear system matrix (penta-diagonal)
 % ----------------------------------------------------------------------- %
-
 Fe = rho*u;     Fw = rho*u;
 De = gamma/h;   Dw = gamma/h;
+if (Fw>=0) alphaw=1; else alphaw=0; end
+if (Fe>=0) alphae=1; else alphae=0; end
 
-if (strcmp(adv_scheme,'CD')) % Central differencing scheme
-    Ae =  Fe/2 - De;
-    Aw = -Fw/2 - Dw;
-elseif (strcmp(adv_scheme,'UPWIND')) % Upwind scheme 
-    Ae = -max(-Fe,0) -De;
-    Aw = -max( Fw,0) -Dw;
-elseif (strcmp(adv_scheme,'HYBRID')) % Hybrid
-    Ae = -max( [-Fe, -Fe/2+De, 0] );
-    Aw = -max( [ Fw,  Fw/2+Dw, 0] );
-elseif (strcmp(adv_scheme,'POWER-LAW')) % Power-Law
-    Ae = -( max(-Fe,0) + De*max(0,(1-0.1*abs(Pe))^5) );
-    Aw = -( max( Fw,0) + Dw*max(0,(1-0.1*abs(Pe))^5) );
-end
+% Side coefficients
+Ae  = - ( De - 3/8*alphae*Fe - 6/8*(1-alphae)*Fe - 1/8*(1-alphaw)*Fw ); 
+Aee = -1/8*(1-alphae)*Fe;
+Aw  = - ( Dw + 6/8*alphaw*Fw + 1/8*alphae*Fe + 3/8*(1-alphaw)*Fw ); 
+Aww = 1/8*alphaw*Fw;
 
 % Central coefficient
-Ap =  -(Aw+Ae) + (Fe-Fw);
+Ap =  -(Aww+Aw+Ae+Aee) + (Fe-Fw);
 
 % Linear system
-n = nx+1;
+n = nx+3;
 b = zeros(n,1);
 A = sparse(n, n);
-A(1,1)=1; A(1,2)=1;
-for i=2:n-1,   A(i,i-1)=Aw; end
-for i=2:n-1,   A(i,i)=Ap;   end
-for i=2:n-1,   A(i,i+1)=Ae; end
-A(n,n)=1; A(n,n-1)=1;
 
-% ----------------------------------------------------------------------- %
-% Solution
-% ----------------------------------------------------------------------- %
+% Assembling for internal points only
+for i=3:n-2,   A(i,i-2)=Aww; end
+for i=3:n-2,   A(i,i-1)=Aw; end
+for i=3:n-2,   A(i,i)=Ap; end
+for i=3:n-2,   A(i,i+1)=Ae; end
+for i=3:n-2,   A(i,i+2)=Aee; end
 
-% Boundary conditions (ghost points)
-b(1) = 2*phi0; 
-b(n) = 2*phiL;
+% Assembling for boundary points: west side
+if (Fw>=0)
+    A(1,1)=1; A(1,2)=-6; A(1,3)=-3;
+    b(1)=-8*phi0; 
+    A(2,2)=1; A(2,3)=1;
+    b(2)=2*phi0; 
+else
+    A(1,1)=1; A(1,2)=-2; A(1,3)=1;
+    b(1)=0;
+    A(2,2)=3; A(2,3)=6; A(2,4)=-1;
+    b(2)=8*phi0; 
+end
+
+% Assembling for boundary points: east side
+if (Fe>=0)
+    A(n-1,n-1)=3; A(n-1,n-2)=6; A(n-1,n-3)=-1;
+    b(n-1)=8*phiL;
+    A(n,n)=1; A(n,n-1)=-2; A(n,n-2)=1;
+    b(n)=0;
+else
+    A(n-1,n-1)=1;  A(n-1, n-2)=1; 
+    b(n-1)=2*phiL;
+    A(n,n)=1; A(n,n-1)=-6; A(n,n-2)=-3;
+    b(n)=-8*phiL;
+end
+
 
 % Update RHS vector
-for i=2:n-1
+for i=3:n-2
     b(i) = 0;
 end
 
-% Solve the system (no iterations are needed)
+% Solve the system
 phi = A\b;
 
 % ----------------------------------------------------------------------- %
 % Data postprocessing
 % ----------------------------------------------------------------------- %
 x = [ 0, h/2:h:L-h/2, L];
-phiphi = [ (phi(1)+phi(2))/2, phi(2:n-1)', (phi(n-1)+phi(n))/2 ];
+phiphi = [ interp_w(Fw,phi,3), phi(3:nx+1)', interp_e(Fe,phi,n-2) ];
 phia = phi0+(phiL-phi0)*(exp(rho*u*x/gamma)-1)./(exp(rho*u*L/gamma)-1);     % analytical solution
 plot(x,phiphi,'-', x,phia,'o'); xlabel('x[m]'); ylabel('phi');
 
 % Error estimation
 error = norm(phia-phiphi')/nx;
 fprintf('Error: %e\n', error);
+
+
+% ----------------------------------------------------------------------- %
+% Interpolation functions
+% ----------------------------------------------------------------------- %
+function phi_int = interp_w(Fw,phi,i)
+    if (Fw>0)
+        phi_int = 6/8*phi(i-1)+3/8*phi(i)-1/8*phi(i-2);
+    else
+        phi_int = 6/8*phi(i)+3/8*phi(i-1)-1/8*phi(i+1);
+    end
+end
+
+function phi_int = interp_e(Fe,phi,i)
+    if (Fe>0)
+        phi_int = 6/8*phi(i)+3/8*phi(i+1)-1/8*phi(i-1);
+    else
+        phi_int = 6/8*phi(i+1)+3/8*phi(i)-1/8*phi(i+2);
+    end
+end
