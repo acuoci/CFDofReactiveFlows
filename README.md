@@ -42,7 +42,7 @@ The Navier-Stokes equations for an incompressible fluid are solved on a 2D recta
 * Addition of inflow and outflow boundaries along the west and east sides, respectively (see above) and addition of a **passive scalar** equation. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_inout_passivescalar.m](codes/driven_cavity/driven_cavity_2d_staggered_inout_passivescalar.m)
 * Addition of a **rectangular obstacle** inside the computational domain. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_obstacle.m](codes/driven_cavity/driven_cavity_2d_obstacle.m)
 * Addition of **buoyancy** term in the momentum equation via Boussinesq approximation, together with a temperature equation. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_buoyancy.m](codes/driven_cavity/driven_cavity_2d_staggered_buoyancy.m)
-* Addition of **local residence time** equation. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_tau.m](codes/driven_cavity/driven_cavity_2d_staggered_tau.m)
+* Addition of **local residence time** equation. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_inout_tau.m](codes/driven_cavity/driven_cavity_2d_staggered_inout_tau.m)
 * Addition of automatic calculation of **Residence Time Distribution (RTD)** and Cumulative Distribution Function (CDF). Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_rtd.m](codes/driven_cavity/driven_cavity_2d_staggered_rtd.m)
 
 ## 7. Navier-Stokes equations in 2D: examples
