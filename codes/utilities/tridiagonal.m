@@ -15,7 +15,7 @@
 %                                                                         %
 %   This file is part of Matlab4CFDofRF framework.                        %
 %                                                                         %
-%	License                                                               %
+%   License                                                               %
 %                                                                         %
 %   Copyright(C) 2017 Alberto Cuoci                                       %
 %   Matlab4CFDofRF is free software: you can redistribute it and/or       %

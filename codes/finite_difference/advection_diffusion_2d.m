@@ -15,7 +15,7 @@
 %                                                                         %
 %   This file is part of Matlab4CFDofRF framework.                        %
 %                                                                         %
-%	License                                                               %
+%   License                                                               %
 %                                                                         %
 %   Copyright(C) 2019 Alberto Cuoci                                       %
 %   Matlab4CFDofRF is free software: you can redistribute it and/or       %
@@ -119,5 +119,6 @@ for m=1:nstep
     t=t+dt;
     
 end
+
 % Closing the video stream
 close(videompg4);
