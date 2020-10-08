@@ -60,17 +60,17 @@ hx=lengthx/(nx-1);      % grid step along x [m]
 hy=lengthy/(ny-1);      % grid step along y [m] 
 
 % Numerical setup: time step (stability conditions)
-sigma = 0.75;                     % safety coefficient
-dt_diff  = 1/4*hx*hy/D;           % diffusion [s]
-dt_conv = 4*D/(u^2+v^2);          % convection [s]
-dt = sigma*min(dt_diff, dt_conv); % time step [s]
+sigma = 0.75;                       % safety coefficient
+dt_diff  = 1/4*min(hx^2, hy^2)/D;   % diffusion [s]
+dt_conv = 4*D/(u^2+v^2);            % convection [s]
+dt = sigma*min(dt_diff, dt_conv);   % time step [s]
 
 % Memory allocation
 f=zeros(nx,ny);     % current numerical solution
 fo=zeros(nx,ny);    % previous numerical solution
 
 % Dirichlet boundary conditions along the east side
-f(nx, ny*1/3:ny*2/3) = fin;
+f(nx, ny*1/3:(ny*2/3+1)) = fin;
 
 % Definition of rectangular mesh (graphical purposes only)
 xaxis = 0:hx:lengthx;
