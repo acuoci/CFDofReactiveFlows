@@ -111,9 +111,9 @@ for m=1:nstep
     end   
     
     % Boundary conditions (Neumann's only)
-    f(1:nx,1)=f(1:nx,2);        % south
-    f(1:nx,ny)=f(1:nx,ny-1);    % north
-    f(1,1:ny)=f(2,1:ny);        % west
+    f(1:nx,1)=fo(1:nx,2);        % south
+    f(1:nx,ny)=fo(1:nx,ny-1);    % north
+    f(1,1:ny)=fo(2,1:ny);        % west
     
     % New time step
     t=t+dt;
