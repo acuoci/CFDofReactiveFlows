@@ -52,3 +52,8 @@ The Taylor-Green vortex is an exact closed form solution of 2D, incompressible N
 ## A. Utilities
 Collection of utility functions for linear algebra, pre- and post-processing, analysis of data, etc.
 * TDMA (TriDiagonal Matrix Algorithm) for solving tridiagonal linear systems of equations. Matlab script: [tridiagonal.m](codes/utilities/tridiagonal.m)
+
+## B. Homework
+### Homework 1
+Numerical solution of advection-diffusion equation in 1D using the Forward Euler method and the centered 2nd order finite-differencing scheme. Comparison with analytical solutions.
+* Matlab script: [homework1.m](codes/homework/homework1.m)
