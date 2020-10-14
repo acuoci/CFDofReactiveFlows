@@ -49,6 +49,7 @@ nx=39;                  % number of grid points along x
 ny=39;                  % number of grid points along y
 max_iterations=5000;    % max number of iterations
 beta=1.;                % SOR coefficient (1 means Gauss-Siedler)
+threshold = 0.001;      % residual threshold
 
 % Pre-processing of user-defined data
 %-------------------------------------------------------------------------%
@@ -86,17 +87,24 @@ for l=1:max_iterations
                          (f(i,j+1)-2*f(i,j)+f(i,j-1))/hy^2 - S(i,j) );
         end
     end
+    tot_res(l) = res/((nx-2)*(ny-2));
+    fprintf('Iteration: %d - Residual: %e\n', l, tot_res(l));
     
-    tot_res = res/((nx-2)*(ny-2));
-    fprintf('Iteration: %d - Residual: %e\n', l, tot_res);
-    
-    if (tot_res < 0.001)
+    if (tot_res(l) < threshold)
         break;
     end
 end
 
 % Graphical output
 %-------------------------------------------------------------------------%
+figure;
 xaxis = 0:hx:lengthx;
 yaxis = 0:hy:lengthy;
-contour(xaxis, yaxis, f');
+pcolor(xaxis, yaxis, f');
+colorbar; shading interp; colormap(jet);
+hcb=colorbar; hcb.Title.String = "f value";
+xlabel('x-axis [m]'); ylabel('y-axis [m]');
+
+figure;
+semilogy(1:length(tot_res), tot_res);
+xlabel('iteration'); ylabel('residual');
