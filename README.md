@@ -59,4 +59,5 @@ Collection of utility functions for linear algebra, pre- and post-processing, an
 ## B. Homework
 ### Homework 1
 Numerical solution of advection-diffusion equation in 1D using the Forward Euler method and the centered 2nd order finite-differencing scheme. Comparison with analytical solutions.
+* Text: [homework1.pdf](codes/homework/Homework1.pdf)
 * Matlab script: [homework1.m](codes/homework/homework1.m)
