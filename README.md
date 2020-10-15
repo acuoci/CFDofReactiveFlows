@@ -61,3 +61,8 @@ Collection of utility functions for linear algebra, pre- and post-processing, an
 Numerical solution of advection-diffusion equation in 1D using the Forward Euler method and the centered 2nd order finite-differencing scheme. Comparison with analytical solutions.
 * Text: [homework1.pdf](codes/homework/Homework1.pdf)
 * Matlab script: [homework1.m](codes/homework/homework1.m)
+### Homework 3
+Numerical solution of Poisson and advection-diffusion equation in 2D using the the finite-differencing scheme. Comparison with analytical solutions.
+* Text: [homework3.pdf](codes/homework/Homework3.pdf)
+* Matlab script: [homework3_poisson.m](codes/homework/homework3_poisson.m)
+* Matlab script: [homework3_advdiff.m](codes/homework/homework3_advdiff.m)
