@@ -17,7 +17,7 @@
 %                                                                         %
 %   License                                                               %
 %                                                                         %
-%   Copyright(C) 2019 Alberto Cuoci                                       %
+%   Copyright(C) 2020 Alberto Cuoci                                       %
 %   Matlab4CFDofRF is free software: you can redistribute it and/or       %
 %   modify it under the terms of the GNU General Public License as        %
 %   published by the Free Software Foundation, either version 3 of the    %
@@ -66,7 +66,8 @@ dt_diff  = 1/4*min(hx^2, hy^2)/D;   % diffusion [s]
 dt_conv = 4*D/(u^2+v^2);            % convection [s]
 dt = sigma*min(dt_diff, dt_conv);   % time step [s]
 fprintf('Co=%f Di=%f Pe=%f \n', ...
-    max(u,v)*dt/min(hx,hy), D*dt/min(hx^2,hy^2), max(hx,hy)*max(u,v)/D);
+            max(u,v)*dt/min(hx,hy), D*dt/min(hx^2,hy^2), ...
+            max(hx,hy)*max(u,v)/D);
 
 % Memory allocation
 f=zeros(nx,ny);     % current numerical solution
