@@ -66,3 +66,9 @@ Numerical solution of Poisson and advection-diffusion equation in 2D using the t
 * Text: [homework3.pdf](codes/homework/Homework3.pdf)
 * Matlab script: [homework3_poisson.m](codes/homework/homework3_poisson.m)
 * Matlab script: [homework3_advdiff.m](codes/homework/homework3_advdiff.m)
+### Homework 4
+Numerical solution of Navier-Stokes equations via the vorticity-streamline function method. Application to the driven cavity test case.
+* Text: [homework4.pdf](codes/homework/Homework4.pdf)
+* Matlab script: [homework4_southwall.m](codes/homework/homework4_southwall.m)
+* Matlab script: [homework4_cutdomain.m](codes/homework/homework4_cutdomain.m)
+* Matlab script: [homework4_nonuniform.m](codes/homework/homework4_nonuniform.m)
