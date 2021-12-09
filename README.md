@@ -48,6 +48,7 @@ The Navier-Stokes equations for an incompressible fluid are solved on a 2D recta
 * Addition of **local residence time** equation. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_inout_tau.m](codes/driven_cavity/driven_cavity_2d_staggered_inout_tau.m)
 * Addition of automatic calculation of **Residence Time Distribution (RTD)** and Cumulative Distribution Function (CDF). Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_rtd.m](codes/driven_cavity/driven_cavity_2d_staggered_rtd.m)
 * Solution of **RANS equations** for turbulent conditions using the Prandtl's k-l model (or Prandtl's 1-equation model). The k-l model requires the solution of one additional equation for the turbulent kinetic energy k. The turbulent length scale is assumed to be equal to the cell size. Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_kl.m](codes/driven_cavity/driven_cavity_2d_staggered_kl.m)
+* Solution of **2nd order reaction** based on the **operator-splitting method**. Several techniques are included for the solution od ethe chemical step: LTS (explicit Local Time Stepping), linerations+segregation, analytical solution, solution via a Matlabe ode solver (such as `ode45` or `ode15s`). Matlab script (square domain, uniform grid): [driven_cavity_2d_staggered_2ndorder_reaction_operator_splitting.m](codes/driven_cavity/driven_cavity_2d_staggered_2ndorder_reaction_operator_splitting.m)
 
 ## 7. Navier-Stokes equations in 2D: examples
 ### Taylor-Green vortex in 2D
