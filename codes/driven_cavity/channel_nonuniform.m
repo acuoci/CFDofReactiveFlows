@@ -87,7 +87,7 @@ end
 % Process the grid
 hx=Lx/nx;                           % grid step (uniform grid) [m]
 hy=Ly/ny;                           % grid step (uniform grid) [m]
-hm=0.50*(hx+hy);                    % grid step (average) [m]
+
 
 % [INOUT] Inlet/Outlet section areas
 Ain = hy*(nin_end-nin_start+1);      % inlet section area [m]
@@ -134,24 +134,24 @@ vv=zeros(nx+1,ny+1);
 pp=zeros(nx+1,ny+1);
 
 % Coefficient for pressure equation
-gamma=zeros(nx+2,ny+2)+hm/(2*hx+2*hy);      % internal cells
-gamma(2,3:ny)=hm/(2*hx+hy);                 % west cells
-gamma(nx+1,3:ny)=hm/(2*hx+hy);              % east cells
-gamma(3:nx,2)=hm/(hx+2*hy);                 % south cells
-gamma(3:nx,ny+1)=hm/(hx+2*hy);              % north cells
-gamma(2,2)=hm/(hx+hy); gamma(2,ny+1)=hm/(hx+hy);          % corner cells
-gamma(nx+1,2)=hm/(hx+hy); gamma(nx+1,ny+1)=hm/(hx+hy);    % corner cells
+gamma=zeros(nx+2,ny+2)+hx*hy/(2*hx^2+2*hy^2);       % internal cells
+gamma(2,3:ny)=hx*hy/(2*hx^2+hy^2);                  % west cells
+gamma(nx+1,3:ny)=hx*hy/(2*hx^2+hy^2);               % east cells
+gamma(3:nx,2)=hx*hy/(hx^2+2*hy^2);                  % south cells
+gamma(3:nx,ny+1)=hx*hy/(hx^2+2*hy^2);               % north cells
+gamma(2,2)=hx*hy/(hx^2+hy^2); gamma(2,ny+1)=hx*hy/(hx^2+hy^2);          % corner cells
+gamma(nx+1,2)=hx*hy/(hx^2+hy^2); gamma(nx+1,ny+1)=hx*hy/(hx^2+hy^2);    % corner cells
 
 % [INOUT] Correction of gamma coefficients for taking into account in sections
 % In inlet sections the velocity is prescribed, so there is no correction
 % Cells belonging to inlet sections behave like cells belonging to a wall
-gamma(nx+1,nout_start:nout_end) = hm/(2*hx+hy);
+gamma(nx+1,nout_start:nout_end) = hx*hy/(2*hx^2+hy^2);
 
 % [INOUT] Correction of gamma coefficients for taking into account out sections
 % In outlet section in principle we can have a correction, since we do not
 % know the outlet velocity. So cells on the oultet section behave like
 % internal cells
-gamma(nx+1,nout_start:nout_end) = hm/(2*hx+2*hy);
+gamma(nx+1,nout_start:nout_end) = hx*hy/(2*hx^2+2*hy^2);
 
 % [INOUT] Initial conditions
 u(1,nin_start:nin_end) = uin;               % inlet section: fixed velocity [m/s]
@@ -286,9 +286,6 @@ hold off;
 function [p, iter] = Poisson2D( p, ut, vt, gamma, nx, ny, hx, hy, dt, ...
                                 beta, max_iterations, max_error, solver_type)
 
-    % Average grid step
-    hm = 0.50*(hx+hy);
-
     % SOR solver
     if (strcmp(solver_type,'SOR'))
 
@@ -298,8 +295,8 @@ function [p, iter] = Poisson2D( p, ut, vt, gamma, nx, ny, hx, hy, dt, ...
             for i=2:nx+1
                 for j=2:ny+1
 
-                    delta = hy/hm*(p(i+1,j)+p(i-1,j))+hx/hm*(p(i,j+1)+p(i,j-1));
-                    S = (hx*hy/hm/dt)*(ut(i,j)-ut(i-1,j)+vt(i,j)-vt(i,j-1));
+                    delta = hy/hx*(p(i+1,j)+p(i-1,j))+hx/hy*(p(i,j+1)+p(i,j-1));
+                    S = 1/dt*( hy*(ut(i,j)-ut(i-1,j)) + hx*(vt(i,j)-vt(i,j-1)));
                     p(i,j)=beta*gamma(i,j)*( delta-S )+(1-beta)*p(i,j);
 
                 end
@@ -311,8 +308,8 @@ function [p, iter] = Poisson2D( p, ut, vt, gamma, nx, ny, hx, hy, dt, ...
             for i=2:nx+1
                 for j=2:ny+1
     
-                    delta = hy/hm*(p(i+1,j)+p(i-1,j))+hx/hm*(p(i,j+1)+p(i,j-1));
-                    S = (hx*hy/hm/dt)*(ut(i,j)-ut(i-1,j)+vt(i,j)-vt(i,j-1));              
+                    delta = hy/hx*(p(i+1,j)+p(i-1,j))+hx/hy*(p(i,j+1)+p(i,j-1));
+                    S = 1/dt*( hy*(ut(i,j)-ut(i-1,j)) + hx*(vt(i,j)-vt(i,j-1)));           
                     epsilon=epsilon+abs( p(i,j) - gamma(i,j)*( delta-S ) );
 
                     count_cells = count_cells+1;
@@ -345,12 +342,12 @@ function [p, iter] = Poisson2D( p, ut, vt, gamma, nx, ny, hx, hy, dt, ...
                 
                 k = (nx+2)*(j-1) + i;
 
-                I(counter) = k; J(counter) = k+1; V(counter) = -gamma(i,j)*hy/hm; counter = counter+1;
-                I(counter) = k; J(counter) = k-1; V(counter) = -gamma(i,j)*hy/hm; counter = counter+1;
-                I(counter) = k; J(counter) = k+(nx+2); V(counter) = -gamma(i,j)*hx/hm; counter = counter+1;
-                I(counter) = k; J(counter) = k-(nx+2); V(counter) = -gamma(i,j)*hx/hm; counter = counter+1;
+                I(counter) = k; J(counter) = k+1; V(counter) = -gamma(i,j)*hy/hx; counter = counter+1;
+                I(counter) = k; J(counter) = k-1; V(counter) = -gamma(i,j)*hy/hx; counter = counter+1;
+                I(counter) = k; J(counter) = k+(nx+2); V(counter) = -gamma(i,j)*hx/hy; counter = counter+1;
+                I(counter) = k; J(counter) = k-(nx+2); V(counter) = -gamma(i,j)*hx/hy; counter = counter+1;
 
-                b(k) = -gamma(i,j)*(hx*hy/hm/dt)*(ut(i,j)-ut(i-1,j)+vt(i,j)-vt(i,j-1));
+                b(k) = -gamma(i,j)*(1/dt)*(hy*(ut(i,j)-ut(i-1,j))+hx*(vt(i,j)-vt(i,j-1)));
             
             end
         end
